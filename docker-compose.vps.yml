@@ -1,22 +1,24 @@
-# Override VPS (mobang) : PAS de port publié — Traefik route + HTTPS + AUTH.
+# Override VPS (mobang-prod) : PAS de port publie — Traefik route + HTTPS.
 # Usage : docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 #
-# ⚠️ Adapte les valeurs à TA config Traefik existante (nom du réseau,
-#    entrypoint, certresolver). Ne JAMAIS exposer ce bureau sans auth.
+# Aligne sur la prod mobang (Traefik v3, /opt/mobang/traefik/traefik.yml) :
+#   entrypoint   = websecure (:443)
+#   certresolver = letsencrypt (tlsChallenge) -> le sous-domaine doit pointer sur le VPS
+#   reseau externe partage avec Traefik = "second-brain"
+#   middleware d'en-tetes de securite deja defini cote Traefik = security-headers@file
+# Auth : fournie par webtop lui-meme (CUSTOM_USER/PASSWORD), servie sous HTTPS.
 services:
   desktop:
+    networks:
+      - second-brain
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.desktop.rule=Host(`${DESKTOP_DOMAIN:?definis DESKTOP_DOMAIN dans .env}`)"
-      - "traefik.http.routers.desktop.entrypoints=websecure"          # adapte
-      - "traefik.http.routers.desktop.tls.certresolver=letsencrypt"   # adapte
+      - "traefik.http.routers.desktop.entrypoints=websecure"
+      - "traefik.http.routers.desktop.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.desktop.middlewares=security-headers@file"
       - "traefik.http.services.desktop.loadbalancer.server.port=3000"
-      # --- AUTH OBLIGATOIRE (basic auth) ---
-      - "traefik.http.routers.desktop.middlewares=desktop-auth"
-      - "traefik.http.middlewares.desktop-auth.basicauth.users=${DESKTOP_BASICAUTH:?genere un hash htpasswd}"
-    networks:
-      - proxy          # adapte au nom de ton réseau Traefik externe
 
 networks:
-  proxy:
-    external: true     # le réseau où tourne déjà ton Traefik
+  second-brain:
+    external: true
