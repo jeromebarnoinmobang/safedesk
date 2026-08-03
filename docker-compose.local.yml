@@ -1,6 +1,9 @@
-# Override LOCAL : bureau exposé sur localhost UNIQUEMENT (jamais sur le réseau).
+# Override LOCAL : bureau + GUI Syncthing sur localhost UNIQUEMENT.
 # Usage : docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 services:
   desktop:
     ports:
       - "127.0.0.1:3000:3000"     # http://localhost:3000
+  home-sync:
+    ports:
+      - "127.0.0.1:8384:8384"     # GUI/API Syncthing (local dials out vers le VPS)

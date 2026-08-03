@@ -1,17 +1,12 @@
-# Bureau KDE conteneurisé — base commune (local + VPS).
-# Image LinuxServer "webtop" : bureau Linux accessible au navigateur (KasmVNC).
-#
-# ⚠️ REPRODUCTIBILITÉ : épingle une version précise (tag + digest), pas ":latest".
-#    Vérifie le tag KDE exact ici : https://docs.linuxserver.io/images/docker-webtop
-#    Exemple une fois épinglé :
-#      image: lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b95589bc537e938c5ff6e7a5435887fc35d0f6
-
+# Bureau KDE conteneurise — base commune (local + VPS).
+# Local : docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+# VPS   : docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 services:
   desktop:
     image: lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b95589bc537e938c5ff6e7a5435887fc35d0f6
     container_name: mobang-desktop
     security_opt:
-      - seccomp:unconfined                 # requis par certains bureaux Kasm
+      - seccomp:unconfined
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -19,10 +14,22 @@ services:
       - CUSTOM_USER=${DESKTOP_USER:-jerome}
       - PASSWORD=${DESKTOP_PASSWORD:?definis DESKTOP_PASSWORD dans .env}
     volumes:
-      - config:/config                     # <- tout l'état (home KDE) vit ici
+      - config:/config
     shm_size: "1gb"
     restart: unless-stopped
-    # Pas de "ports" ici : géré par l'override (local = localhost, VPS = Traefik).
+
+  # Sidecar Syncthing : replique le home KDE (/config) local <-> VPS (converge au switch).
+  home-sync:
+    image: syncthing/syncthing@sha256:775c4aac486263ca8653055bba7d3061799281974b706695e17bc798da3f4e92
+    container_name: mobang-desktop-sync
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    volumes:
+      - syncthing-config:/var/syncthing/config
+      - config:/sync/home
+    restart: unless-stopped
 
 volumes:
   config:
+  syncthing-config:
