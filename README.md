@@ -1,134 +1,134 @@
-# mobang-desktop — bureau KDE portable (local **ou** streamé depuis le VPS)
+# SafeDesk
 
-La « brique OS » du projet : un bureau **KDE conteneurisé**, reproductible, qu'on lance :
-- **en local** (ta machine calcule, **zéro charge sur le VPS**), ou
-- **sur mobang (VPS)** et **streamé dans le navigateur** (pour vieux PC / accès distant).
+**Un bureau Linux complet, identique en local et depuis le web, pour rendre l informatique
+sure et accessible a ceux qu elle depasse ou qu elle met en danger.**
 
-Même image → même bureau. L'état vit dans un volume. Tout est déclaratif → **reproductible**
-(`git clone` + `make` = même environnement partout).
+SafeDesk est un environnement de bureau KDE conteneurise que vous lancez **sur votre machine**
+ou que vous **streamez depuis un serveur** — meme image, meme dossier personnel, meme reglages.
+Vous fermez votre ordinateur, vous rouvrez le bureau depuis un navigateur ailleurs : tout est la.
 
----
+## Pourquoi
 
-## « Est-ce que le local décharge le VPS ? » → OUI
-Le conteneur s'exécute **là où tu le lances**, jamais aux deux endroits :
-- **local** → ton CPU/RAM bossent, le VPS n'est **pas** sollicité (hors sync du home, négligeable). Marche hors-ligne.
-- **VPS** → le VPS bosse et streame.
+Ce projet est ne de deux arnaques bien reelles : une personne agee piegee par une fausse fenetre
+de "support technique" qui a fini par donner sa carte bancaire, et un faux artisan aux excellents
+avis en ligne. Le constat : les gens malhonnetes ont de meilleurs outils que leurs victimes.
 
-C'est **l'un OU l'autre**. On ne streame depuis le VPS **que** quand la machine cible est trop faible
-(vieux PC = juste un navigateur). Machine costaude = local, VPS libre.
+L idee n est pas d enfermer l utilisateur, mais de lui presenter une surface **adaptee, guidee
+et defendue** — *une cloture contre les loups, pas une cage*. Le bureau cache la complexite du
+systeme, et un assistant l aide et agit a sa place quand il le demande.
 
----
+## Ce que ca fait aujourd hui
 
-## Prérequis
-- Docker + Docker Compose.
-- (VPS uniquement) Traefik déjà en place — c'est ton cas sur mobang.
+- **Bureau KDE Plasma complet** streame dans un onglet (WebRTC), image figee par digest.
+- **Local ou distant, au choix** : en local il ne consomme rien sur le serveur ; a distance il
+  reste disponible machine eteinte, derriere HTTPS et authentification.
+- **Dossier personnel synchronise** entre les deux (Syncthing) : reglages, fichiers, profils
+  de navigateur suivent l utilisateur.
+- **Detection automatique du GPU** : accelere le rendu quand la machine le permet, retombe
+  proprement en rendu logiciel sinon — sans configuration.
+- **Navigateurs et outils** : Chromium, Google Chrome, VS Code, GitHub CLI, Node.
+- **Claude Desktop** (beta Linux) preinstalle, cle de depot verifiee par empreinte.
 
-## Lancer en LOCAL
-```bash
-cp .env.example .env        # renseigne user/mot de passe/TZ
-make local                  # = docker compose ... up -d
-# → http://localhost:3000   (bureau KDE dans ton navigateur)
-```
+## Demarrage rapide
 
-## Déployer sur le VPS (mobang), streamé + derrière Traefik
-```bash
-# renseigne DESKTOP_DOMAIN + DESKTOP_BASICAUTH dans .env
-make deploy
-# → https://$DESKTOP_DOMAIN  (HTTPS + auth obligatoires)
-```
-
----
-
-## ⚠️ Sécurité — non négociable
-Un bureau accessible = un **accès complet à une machine**. Sur le VPS, il **doit** être :
-- en **HTTPS** (Traefik s'en charge),
-- derrière une **authentification** (basic auth / middleware) — **jamais exposé nu**.
-Voir `docker-compose.vps.yml`.
-
-## Reproductibilité
-- Image **épinglée** (tag **+ digest `@sha256:`**) — pas de `:latest` en prod.
-- Tout l'état dans le volume `config` (home KDE). Rien de durable dans le conteneur.
-- Config par `.env`. Aucune étape manuelle cachée.
-
-## Feuille de route (les briques, dans l'ordre)
-1. [x] **Base** : bureau KDE conteneurisé, local + VPS streamé — *ce repo*.
-2. [ ] **Pont MCP** : exposer les capacités du bureau à un LLM (agnostique).
-3. [ ] **Assistant voix** (STT/TTS) branché sur le pont.
-4. [ ] **Surface adaptée + garde-fous** (profils, anti-arnaque, kiosk).
-5. [ ] **Sync du home** local ↔ VPS.
-
-
-## Home sync (Syncthing via tailnet)
-
-Chaque hote lance un sidecar Syncthing (`home-sync`) qui monte le volume `/config`
-du bureau sur `/sync/home` et le replique. Dossier partage `desktop-home` (sendreceive),
-`.stignore` pour les fichiers volatils (cache, sockets, locks, X auth, caches navigateur).
-
-**Transport : tailnet headscale, direct** (le port P2P public 22000 est bloque en sortie
-par le reseau local). Cote local, l'adresse du device VPS = `tcp://100.64.0.1:22000`.
-
-Piege : l'image officielle `syncthing/syncthing` tourne en **UID 1000** et n'utilise PAS
-`PUID/PGID` -> le volume de config Syncthing doit etre `chown 1000:1000`, sinon crash
-(`permission denied` sur cert.pem).
-
-## Modele d'usage
-
-- Un seul bureau actif a la fois (local **ou** VPS) -> converge au switch (~10 s).
-- Synchronise = le HOME (`/config`). Pas synchronises = paquets systeme (apt) ni volatils.
-
-## Rendu graphique : detection automatique du GPU
-
-`scripts/up-local.ps1` (Windows) et `scripts/up-local.sh` (Linux/macOS) sondent la
-capacite de rendu **dans un conteneur** avant de lancer, puis choisissent le profil :
-
-| Detection | Profil | Override compose |
-|---|---|---|
-| `/dev/dxg` + `libd3d12.so` (Windows/WSL2) | `zz-gpu-wsl` | `docker-compose.gpu-wsl.yml` |
-| `/dev/dri` (Linux natif) | `zz-gpu-dri` | `docker-compose.gpu-dri.yml` |
-| rien | `zz-no-gpu` | aucun (rendu logiciel) |
-
-Le profil est monte sur `/etc/chromium.d/zz-render` via la variable `RENDER_PROFILE`.
-
-**Piege verifie** : `nvidia-smi` qui repond ne prouve RIEN sur le rendu. Sur WSL2, le GPU
-est expose en compute (CUDA) via `/dev/dxg` ; l'OpenGL passe par les libs WSL montees
-(`/usr/lib/wsl`) et le driver **Mesa gallium d3d12**. Sans elles, ou en forcant `--use-gl=egl`,
-le process GPU de Chromium **quitte a l'initialisation** et les fenetres deviennent blanches.
-Ne pas forcer `--use-gl` : Chromium n'autorise que `egl-angle`.
-
-Verification (temporaire, dans le conteneur) :
+Prerequis : Docker et Docker Compose.
 
 ```bash
-docker exec -u 0 mobang-desktop apt-get install -y mesa-utils
-docker exec mobang-desktop sh -c 'DISPLAY=:1 LD_LIBRARY_PATH=/usr/lib/wsl/lib GALLIUM_DRIVER=d3d12 glxinfo -B'
-# attendu : OpenGL renderer string: D3D12 (NVIDIA ...) / Accelerated: yes
+git clone https://github.com/<vous>/safedesk.git && cd safedesk
+cp .env.example .env      # definissez au moins DESKTOP_PASSWORD
+./scripts/up-local.sh     # Windows : powershell -ExecutionPolicy Bypass -File scripts\up-local.ps1
 ```
 
-Le VPS n'a pas de carte : il reste en `zz-no-gpu` (`make deploy` force ce profil).
+Le bureau repond sur <http://localhost:3000> (publie sur la boucle locale uniquement).
 
-## Navigateur : Google Chrome officiel
+### Deploiement distant (streame)
 
-Chromium (build non-brande) **ne peut pas** connecter un compte Google au navigateur :
-depuis le 15/03/2021 Google reserve le jeton OAuth de sync a Chrome officiel. La popup
-de connexion part en cul-de-sac et reste blanche — ce n'est pas un bug de cette install.
+Adaptez `docker-compose.remote.yml` a votre reverse proxy, pointez le DNS du sous-domaine
+vers le serveur, puis :
 
-L'image est donc construite localement (`Dockerfile`) a partir de webtop KDE + le paquet
-`google-chrome-stable` officiel. Chrome est lance par `/usr/local/bin/wrapped-google-chrome`,
-qui source le meme profil de rendu que Chromium (`/etc/chromium.d/zz-render`) : il herite
-donc automatiquement du GPU ou du rendu logiciel selon la machine.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.remote.yml up -d
+```
 
-`docker compose up` construit l'image si besoin (`image: mobang/desktop:kde`).
-Le profil Chrome vit dans `/config` -> il est repliqué local <-> VPS par Syncthing.
+**N exposez jamais ce bureau sans HTTPS ni authentification** : il donne acces a une session
+complete, avec les comptes qui y sont connectes.
 
-## Claude Desktop (beta Linux)
+## Architecture
 
-Le bouton de telechargement de claude.com affiche "Non disponible pour Linux" : c'est une
-mauvaise detection de plateforme. Le paquet **existe** (beta) et fournit Chat, Cowork et Code.
-Il est installe dans l'image depuis le depot apt officiel Anthropic ; la cle de signature est
-**verifiee par empreinte** dans le Dockerfile (`31DDDE24...1A7ECACE`) -> le build echoue si elle
-ne correspond pas.
+| Fichier | Role |
+|---|---|
+| `docker-compose.yml` | Base commune : bureau + sidecar de synchronisation |
+| `docker-compose.local.yml` | Publie le bureau sur la boucle locale |
+| `docker-compose.remote.yml` | Route derriere un reverse proxy (HTTPS + auth) |
+| `docker-compose.gpu-wsl.yml` | GPU sous Windows/WSL2 (Direct3D 12) |
+| `docker-compose.gpu-dri.yml` | GPU sous Linux natif (`/dev/dri`) |
+| `Dockerfile` | Image : bureau + navigateurs + outils |
+| `scripts/up-local.*` | Detection GPU puis lancement |
+| `chromium.d/zz-*` | Profils de rendu injectes dans les navigateurs |
 
-Prerequis : Debian 12+ / Ubuntu 22.04+, amd64 ou arm64 (l'image est Debian 13 : OK).
+Le profil de rendu retenu est monte sur `/etc/chromium.d/zz-render` : Chromium **et** Chrome en
+heritent, sans duplication de configuration.
 
-Absent de la beta Linux (a savoir pour la brique pont MCP) :
-- **Computer Use** (controle ecran/apps) : indisponible sur Linux.
-- **Dictee vocale** : indisponible dans l'app (dispo via la CLI).
+## Detection du GPU
+
+| Detecte dans un conteneur | Profil |
+|---|---|
+| `/dev/dxg` + `libd3d12.so` (Windows/WSL2) | `zz-gpu-wsl` |
+| `/dev/dri` (Linux natif) | `zz-gpu-dri` |
+| rien | `zz-no-gpu` (rendu logiciel) |
+
+**Piege verifie** : `nvidia-smi` qui repond ne prouve rien sur le rendu. Sous WSL2 le GPU est
+expose en calcul ; l OpenGL passe par les bibliotheques WSL montees et le pilote Mesa **d3d12**.
+Sans elles, ou en forcant `--use-gl=egl`, le processus GPU des navigateurs **quitte a l initialisation**
+et les fenetres deviennent blanches. Ne forcez pas `--use-gl` : seul `egl-angle` est autorise.
+
+Verifier l acceleration reelle :
+
+```bash
+docker exec -u 0 <conteneur> apt-get install -y mesa-utils
+docker exec <conteneur> sh -c 'DISPLAY=:1 LD_LIBRARY_PATH=/usr/lib/wsl/lib GALLIUM_DRIVER=d3d12 glxinfo -B'
+# attendu : "Accelerated: yes"
+```
+
+## Synchronisation du dossier personnel
+
+Un sidecar Syncthing monte le volume `/config` sur `/sync/home` et le replique entre les hotes
+(dossier `desktop-home`, bidirectionnel, fichiers volatils exclus).
+
+- **Un seul bureau actif a la fois** : la convergence se fait au moment ou vous basculez.
+- Sont synchronises : reglages, fichiers, profils. Ne le sont pas : les paquets systeme
+  (ils vivent dans l image) et les caches.
+- Si le port pair-a-pair est filtre par le reseau, faites passer la synchronisation par un
+  reseau prive (Tailscale/Headscale, WireGuard) plutot que par les relais publics.
+
+**Note** : l image officielle Syncthing tourne en UID 1000 et n utilise pas `PUID`/`PGID` ;
+son volume de configuration doit appartenir a `1000:1000`, sinon elle ne peut pas ecrire son
+certificat et redemarre en boucle.
+
+## Navigateurs et compte Google
+
+Chromium ne peut pas connecter un compte Google **au navigateur** : depuis le 15 mars 2021,
+Google reserve le jeton de synchronisation aux versions officielles de Chrome. La fenetre de
+connexion reste blanche — ce n est pas un defaut de ce projet. Google Chrome officiel est donc
+fourni dans l image pour ceux qui veulent cette synchronisation.
+
+## Securite
+
+- Le bureau donne acces a une **session complete** : traitez son mot de passe comme un secret fort.
+- Le dossier personnel etant replique, les sessions et mots de passe enregistres dans les
+  navigateurs le sont aussi. Choisissez en consequence ce que vous connectez.
+- `.env` n est jamais versionne. Aucun secret n est stocke dans ce depot.
+
+## Feuille de route
+
+- Pont **MCP** entre l assistant et le bureau : percevoir l ecran et agir, avec confirmation
+  obligatoire sur les actions irreversibles.
+- **Assistant vocal** (reconnaissance et synthese) branche sur ce pont.
+- **Surface adaptee** : profils (senior, enfant, debutant), filtrage anti-arnaque, garde-fous
+  en langage clair, mode kiosque. Protegér sans enfermer : consenti, transparent, toujours une sortie.
+- Declinaison **telephone** (Plasma Mobile est convergent) sur le meme dossier personnel.
+
+## Licence
+
+[AGPL-3.0](LICENSE). Si vous proposez ce bureau comme service en ligne, vous devez publier
+vos modifications.

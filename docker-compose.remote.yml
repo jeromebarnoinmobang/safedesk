@@ -1,0 +1,26 @@
+# Override distant : AUCUN port publie — un reverse proxy expose le bureau en HTTPS.
+# Usage : docker compose -f docker-compose.yml -f docker-compose.remote.yml up -d
+#
+# Exemple fourni pour Traefik v3. Adaptez a votre proxy si vous en utilisez un autre.
+# Variables attendues dans .env :
+#   DESKTOP_DOMAIN   sous-domaine (son DNS doit pointer vers ce serveur)
+#   PROXY_NETWORK    reseau Docker partage avec le proxy (defaut : proxy)
+#   CERT_RESOLVER    resolveur de certificats du proxy (defaut : letsencrypt)
+#
+# L authentification est fournie par le bureau lui-meme (DESKTOP_USER / DESKTOP_PASSWORD).
+# N exposez JAMAIS ce service sans HTTPS ni authentification.
+services:
+  desktop:
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.safedesk.rule=Host(`${DESKTOP_DOMAIN:?definissez DESKTOP_DOMAIN dans .env}`)"
+      - "traefik.http.routers.safedesk.entrypoints=websecure"
+      - "traefik.http.routers.safedesk.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.services.safedesk.loadbalancer.server.port=3000"
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-proxy}
+    external: true

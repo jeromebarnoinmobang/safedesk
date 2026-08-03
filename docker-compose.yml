@@ -1,3 +1,5 @@
+name: safedesk
+
 # Bureau KDE conteneurise — base commune (local + VPS).
 # Local : docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 # VPS   : docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
@@ -13,7 +15,7 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Europe/Paris}
-      - CUSTOM_USER=${DESKTOP_USER:-jerome}
+      - CUSTOM_USER=${DESKTOP_USER:-user}
       - PASSWORD=${DESKTOP_PASSWORD:?definis DESKTOP_PASSWORD dans .env}
     volumes:
       - config:/config

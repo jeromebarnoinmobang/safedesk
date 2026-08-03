@@ -29,6 +29,23 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends claude-desktop; \
     rm -rf /var/lib/apt/lists/*
 # Lanceur maison : reutilise le profil de rendu (/etc/chromium.d/zz-render)
+
+# Outils de travail : Node (requis par les MCP lances en npx), GitHub CLI, VS Code, git.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends nodejs git;   # npm/npx viennent avec nodejs (NodeSource) \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      -o /usr/share/keyrings/githubcli-archive-keyring.gpg; \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg; \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list; \
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+      | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg; \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+      > /etc/apt/sources.list.d/vscode.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends gh code; \
+    rm -rf /var/lib/apt/lists/*
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
 RUN chmod +x /usr/local/bin/wrapped-google-chrome \
  && sed -i 's|^Exec=/usr/bin/google-chrome-stable|Exec=/usr/local/bin/wrapped-google-chrome|' \
