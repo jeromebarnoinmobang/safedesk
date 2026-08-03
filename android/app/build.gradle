@@ -1,0 +1,45 @@
+plugins { id 'com.android.application' }
+
+def ksFile = System.getenv("KEYSTORE_FILE")
+
+android {
+    namespace 'org.safedesk.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "org.safedesk.app"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "0.1.0"
+    }
+
+    if (ksFile != null) {
+        signingConfigs {
+            release {
+                storeFile file(ksFile)
+                storePassword System.getenv("KEYSTORE_PASS")
+                keyAlias System.getenv("KEY_ALIAS") ?: "safedesk"
+                keyPassword System.getenv("KEY_PASS")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ksFile != null) { signingConfig signingConfigs.release }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.activity:activity:1.9.2'
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+}

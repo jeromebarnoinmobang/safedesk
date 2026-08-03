@@ -153,3 +153,27 @@ Appairage : dans Moonlight, ajouter l hote (l IP privee) -> un PIN s affiche -> 
 **Securite** : ne publiez ces ports que sur une adresse privee (VPN/tailnet). Jamais `0.0.0.0`
 (Docker contourne UFW). L etat de Sunshine (`.config/sunshine`) doit etre EXCLU de la
 synchronisation du home : chaque hote garde sa propre identite d appairage.
+
+## Application Android (APK + QR)
+
+Le dossier `android/` contient une application compagnon minimaliste : au premier
+lancement elle demande de **scanner un code SafeDesk**, puis affiche le bureau en
+plein ecran (connexion automatique, ecran maintenu allume). L experience visee :
+*installer, scanner, c est tout.*
+
+L APK est **forge dans le cloud** par GitHub Actions (aucun SDK local) :
+
+```bash
+gh workflow run android.yml -f version=0.1.0   # -> release "app-v0.1.0" avec l APK
+```
+
+Signature : cle stable via les secrets `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASS`,
+sinon cle ephemere generee a chaque build (les mises a jour demandent alors une reinstallation).
+
+Les QR codes sont generes par `scripts/make-qr.sh` :
+
+- `--install` : lien vers le dernier APK publie ;
+- sans option : QR de **configuration** `safedesk://connect?data=<base64url(json)>`
+  construit depuis `.env`. Il contient les identifiants : a montrer uniquement a la
+  personne concernee (modele "possession physique" v1 ; jetons d enrolement a usage
+  unique prevus ensuite).

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SafeDesk</string>
+    <string name="welcome_title">Bienvenue</string>
+    <string name="welcome_sub">Scanne ton code SafeDesk pour retrouver ton espace.</string>
+    <string name="btn_scan">Scanner mon code</string>
+    <string name="scan_prompt">Vise le code SafeDesk</string>
+    <string name="bad_code">Ce code n\'est pas un code SafeDesk valide.</string>
+    <string name="quit_title">Quitter le bureau ?</string>
+    <string name="quit_yes">Quitter</string>
+    <string name="quit_no">Rester</string>
+    <string name="quit_forget">Oublier ce SafeDesk</string>
+</resources>
