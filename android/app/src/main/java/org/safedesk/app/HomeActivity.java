@@ -8,7 +8,6 @@ import android.os.Looper;
 import android.util.Base64;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
@@ -29,18 +28,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-/** Accueil TELEPHONE : grandes tuiles. Chaque tuile = une appli ouverte cote serveur. */
+/** Accueil TELEPHONE : grandes tuiles. Ne peut jamais paraitre vide. */
 public class HomeActivity extends AppCompatActivity {
 
     private GridLayout grid;
+    private TextView status;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    static class Tile { String id, label, icon; Tile(String i, String l, String c){id=i;label=l;icon=c;} }
+    static class Tile { String id, label, icon; Tile(String i,String l,String c){id=i;label=l;icon=c;} }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
+    protected void onCreate(Bundle b) {
+        super.onCreate(b);
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.parseColor("#0F1115"));
         LinearLayout col = new LinearLayout(this);
@@ -55,45 +54,63 @@ public class HomeActivity extends AppCompatActivity {
         title.setGravity(Gravity.CENTER);
         col.addView(title);
 
+        status = new TextView(this);
+        status.setTextColor(Color.parseColor("#8B94A7"));
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        status.setGravity(Gravity.CENTER);
+        status.setPadding(0, dp(10), 0, 0);
+        col.addView(status);
+
         grid = new GridLayout(this);
         grid.setColumnCount(2);
         grid.setUseDefaultMargins(true);
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        gp.topMargin = dp(20);
+        gp.topMargin = dp(16);
         col.addView(grid, gp);
 
-        // Tuile "Bureau complet" (mode expert) toujours presente
-        TextView deskTile = tileView(new Tile("__desktop__", "Bureau complet", "\uD83D\uDDA5\uFE0F"));
-        deskTile.setOnClickListener(v -> {
-            startActivity(new Intent(this, DesktopActivity.class));
-        });
-        grid.addView(deskTile);
-
         setContentView(scroll);
-        loadTiles();
+        render(new ArrayList<>());   // affiche au moins "Bureau complet"
+        load();
     }
 
-    private void loadTiles() {
+    private void load() {
+        status.setText("Chargement de tes applications\u2026");
         Executors.newSingleThreadExecutor().execute(() -> {
             final List<Tile> tiles = new ArrayList<>();
+            String err = null;
             try {
-                String json = httpGet(Config.url(this) + "/safedesk/apps");
-                JSONObject o = new JSONObject(json);
+                JSONObject o = new JSONObject(httpGet(Config.url(this) + "/safedesk/apps"));
                 for (Iterator<String> it = o.keys(); it.hasNext(); ) {
                     String k = it.next();
                     JSONObject a = o.getJSONObject(k);
                     tiles.add(new Tile(k, a.optString("label", k), a.optString("icon", "\u2699\uFE0F")));
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                err = e.getMessage();
+            }
+            final String fErr = err;
             ui.post(() -> {
-                for (Tile t : tiles) {
-                    TextView tv = tileView(t);
-                    tv.setOnClickListener(v -> runApp(t));
-                    grid.addView(tv);
-                }
+                render(tiles);
+                status.setText(tiles.isEmpty()
+                    ? "Connexion impossible \u2014 touche pour reessayer"
+                    : "");
+                status.setOnClickListener(tiles.isEmpty() ? v -> load() : null);
             });
         });
+    }
+
+    private void render(List<Tile> tiles) {
+        grid.removeAllViews();
+        for (Tile t : tiles) {
+            TextView tv = tileView(t);
+            tv.setOnClickListener(v -> runApp(t));
+            grid.addView(tv);
+        }
+        Tile desk = new Tile("__desktop__", "Bureau complet", "\uD83D\uDDA5\uFE0F");
+        TextView dv = tileView(desk);
+        dv.setOnClickListener(v -> startActivity(new Intent(this, DesktopActivity.class)));
+        grid.addView(dv);
     }
 
     private void runApp(Tile t) {
@@ -112,8 +129,7 @@ public class HomeActivity extends AppCompatActivity {
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         tv.setBackgroundColor(Color.parseColor("#1A1F29"));
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-        lp.width = 0;
-        lp.height = dp(130);
+        lp.width = 0; lp.height = dp(130);
         lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
         lp.setMargins(dp(8), dp(8), dp(8), dp(8));
         tv.setLayoutParams(lp);
@@ -121,13 +137,11 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private String httpGet(String urlStr) throws IOException {
-        URL url = new URL(urlStr);
-        HttpURLConnection c = (HttpURLConnection) url.openConnection();
+        HttpURLConnection c = (HttpURLConnection) new URL(urlStr).openConnection();
         String auth = Config.user(this) + ":" + Config.pass(this);
         c.setRequestProperty("Authorization", "Basic " +
                 Base64.encodeToString(auth.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP));
-        c.setConnectTimeout(8000);
-        c.setReadTimeout(8000);
+        c.setConnectTimeout(8000); c.setReadTimeout(8000);
         java.io.InputStream in = c.getInputStream();
         java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
         byte[] buf = new byte[4096]; int n;
