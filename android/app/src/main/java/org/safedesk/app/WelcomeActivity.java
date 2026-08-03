@@ -10,6 +10,7 @@ import android.os.Looper;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -89,6 +90,14 @@ public class WelcomeActivity extends AppCompatActivity {
             if (s == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.FRENCH);
                 ttsReady = true;
+                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String id) {}
+                    @Override public void onError(String id) {}
+                    @Override public void onDone(String id) {
+                        // Des que le "bonjour" est fini : on ouvre le micro tout seul.
+                        if ("hi".equals(id)) runOnUiThread(WelcomeActivity.this::promptMicThenListen);
+                    }
+                });
                 new Handler(Looper.getMainLooper()).postDelayed(this::sayHello, 600);
             }
         });
@@ -96,6 +105,17 @@ public class WelcomeActivity extends AppCompatActivity {
 
     private void sayHello() {
         if (ttsReady) tts.speak(HELLO, TextToSpeech.QUEUE_FLUSH, null, "hi");
+    }
+
+    private void promptMicThenListen() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            listen();
+        } else {
+            // la permission accordee declenche l ecoute (voir onRequestPermissionsResult)
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+        }
     }
 
     private void listen() {
