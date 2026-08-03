@@ -4,11 +4,11 @@
 # ⚠️ REPRODUCTIBILITÉ : épingle une version précise (tag + digest), pas ":latest".
 #    Vérifie le tag KDE exact ici : https://docs.linuxserver.io/images/docker-webtop
 #    Exemple une fois épinglé :
-#      image: lscr.io/linuxserver/webtop:debian-kde@sha256:<digest>
+#      image: lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b95589bc537e938c5ff6e7a5435887fc35d0f6
 
 services:
   desktop:
-    image: lscr.io/linuxserver/webtop:debian-kde   # TODO: épingler @sha256:...
+    image: lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b95589bc537e938c5ff6e7a5435887fc35d0f6
     container_name: mobang-desktop
     security_opt:
       - seccomp:unconfined                 # requis par certains bureaux Kasm
