@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="200dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <!-- corps -->
+    <path android:fillColor="#14B8A6" android:pathData="M28,58 h44 a10,10 0 0 1 10,10 v14 a6,6 0 0 1 -6,6 h-52 a6,6 0 0 1 -6,-6 v-14 a10,10 0 0 1 10,-10 z"/>
+    <!-- tete -->
+    <path android:fillColor="#2DD4BF" android:pathData="M50,14 m-24,0 a24,24 0 1 0 48,0 a24,24 0 1 0 -48,0"/>
+    <!-- yeux -->
+    <path android:fillColor="#0F1115" android:pathData="M40,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0"/>
+    <path android:fillColor="#0F1115" android:pathData="M60,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0"/>
+    <!-- sourire -->
+    <path android:strokeColor="#0F1115" android:strokeWidth="4" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:pathData="M39,24 Q50,34 61,24"/>
+    <!-- main qui fait coucou -->
+    <path android:fillColor="#2DD4BF" android:pathData="M82,44 m-8,0 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0"/>
+</vector>

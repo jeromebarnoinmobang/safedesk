@@ -117,7 +117,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void openDesktop() {
         // Choix du mode d affichage a l installation (une seule fois), puis accueil.
-        Class<?> next = Config.hasProfile(this) ? HomeActivity.class : ProfileActivity.class;
+        Class<?> next;
+        if (!Config.hasProfile(this)) next = ProfileActivity.class;
+        else if (Config.isSenior(this)) next = WelcomeActivity.class;   // le bonhomme dit bonjour
+        else next = HomeActivity.class;
         startActivity(new Intent(this, next));
         finish();
     }

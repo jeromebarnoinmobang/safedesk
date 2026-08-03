@@ -100,20 +100,15 @@ public class HomeActivity extends AppCompatActivity {
             tv.setOnClickListener(v -> runApp(t));
             grid.addView(tv);
         }
+        TextView talk = tileView("\uD83C\uDFA4", "Parle-moi", "#14B8A6", "#0F1115");
+        talk.setOnClickListener(v -> startActivity(new Intent(this, TutoActivity.class)));
+        grid.addView(talk);
+
         TextView dv = tileView("\uD83D\uDDA5\uFE0F", "Bureau complet", "#1A1F29", "#E8ECF3");
         dv.setOnClickListener(v -> startActivity(new Intent(this, DesktopActivity.class)));
         grid.addView(dv);
 
-        if (senior) {   // aide toujours accessible (amorce du "tier humain")
-            TextView help = tileView("\u2753", "Besoin d'aide", "#14B8A6", "#0F1115");
-            help.setOnClickListener(v -> new AlertDialog.Builder(this)
-                    .setTitle("Besoin d'aide ?")
-                    .setMessage("Touche une grande case pour ouvrir ton application.\n\n"
-                            + "Un proche ou un assistant pourra bientot t'aider a distance depuis ici.")
-                    .setPositiveButton("J'ai compris", null)
-                    .show());
-            grid.addView(help);
-        }
+
     }
 
     private void runApp(Tile t) {

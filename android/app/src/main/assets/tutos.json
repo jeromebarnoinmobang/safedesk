@@ -1,0 +1,36 @@
+{
+  "tutos": [
+    {
+      "title": "Voir mes photos",
+      "icon": "\uD83D\uDDBC\uFE0F",
+      "steps": [
+        "Touche la grande case bleue nommee \"Mes fichiers\".",
+        "Touche le dossier appele \"Images\".",
+        "Touche une photo : elle s'agrandit.",
+        "Pour revenir, touche le bouton vert en forme de maison, en bas.",
+        "C'est fini. Tu sais voir tes photos !"
+      ]
+    },
+    {
+      "title": "Ecrire a ma famille",
+      "icon": "\u2709\uFE0F",
+      "steps": [
+        "Touche la grande case \"Mes mails\".",
+        "Touche le bouton \"Ecrire\" (souvent un crayon).",
+        "Ecris le prenom de la personne, puis choisis-la dans la liste.",
+        "Ecris ton message dans le grand cadre.",
+        "Touche \"Envoyer\". Voila, c'est parti !"
+      ]
+    },
+    {
+      "title": "Revenir a l'accueil",
+      "icon": "\uD83C\uDFE0",
+      "steps": [
+        "Tu es dans une application et tu veux revenir en arriere ?",
+        "Cherche le bouton VERT en forme de maison, en bas a gauche.",
+        "Touche-le.",
+        "Tu retrouves tes grandes cases. Bravo !"
+      ]
+    }
+  ]
+}
