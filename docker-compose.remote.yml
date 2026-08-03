@@ -35,7 +35,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.safedesk-landing.rule=Host(``) && (PathPrefix(`/sd`) || Path(`/.well-known/assetlinks.json`))"
+      - "traefik.http.routers.safedesk-landing.rule=Host(`${DESKTOP_DOMAIN:?}`) && (PathPrefix(`/sd`) || Path(`/.well-known/assetlinks.json`))"
       - "traefik.http.routers.safedesk-landing.entrypoints=websecure"
       - "traefik.http.routers.safedesk-landing.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.services.safedesk-landing.loadbalancer.server.port=80"
