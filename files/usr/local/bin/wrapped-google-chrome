@@ -2,6 +2,16 @@
 # Lance Google Chrome en reprenant le profil de rendu detecte (GPU ou logiciel).
 # zz-render est monte par docker-compose selon la machine (voir scripts/up-local.*).
 
+PROFILE_DIR="$HOME/.config/google-chrome"
+
+# Verrou perime : SingletonLock memorise le nom d hote. Un conteneur recree change de nom
+# d hote, et Chrome refuse alors d ouvrir le profil ("in use on another computer").
+# Meme nettoyage que le lanceur Chromium de l image : on ne retire le verrou que si
+# AUCUN processus Chrome ne tourne.
+if ! pgrep -f '/opt/google/chrome/chrome' > /dev/null; then
+  rm -f "$PROFILE_DIR"/Singleton*
+fi
+
 CHROMIUM_FLAGS=""
 [ -r /etc/chromium.d/zz-render ] && . /etc/chromium.d/zz-render
 

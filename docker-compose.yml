@@ -12,6 +12,9 @@ services:
         INSTALL_CLAUDE: ${INSTALL_CLAUDE:-false}
     image: mobang/desktop:kde
     container_name: mobang-desktop
+    # Hostname FIXE : sans lui, chaque recreation change le nom d hote et les navigateurs
+    # refusent d ouvrir leur profil (SingletonLock ecrit l ancien hote -> profil in use).
+    hostname: safedesk
     security_opt:
       - seccomp:unconfined
     environment:
@@ -32,6 +35,7 @@ services:
   home-sync:
     image: syncthing/syncthing@sha256:775c4aac486263ca8653055bba7d3061799281974b706695e17bc798da3f4e92
     container_name: mobang-desktop-sync
+    hostname: safedesk-sync
     volumes:
       - syncthing-config:/var/syncthing/config
       - config:/sync/home
