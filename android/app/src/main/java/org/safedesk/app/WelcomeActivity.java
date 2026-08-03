@@ -94,8 +94,13 @@ public class WelcomeActivity extends AppCompatActivity {
                     @Override public void onStart(String id) {}
                     @Override public void onError(String id) {}
                     @Override public void onDone(String id) {
-                        // Des que le "bonjour" est fini : on ouvre le micro tout seul.
-                        if ("hi".equals(id)) runOnUiThread(WelcomeActivity.this::promptMicThenListen);
+                        if ("hi".equals(id)) {
+                            runOnUiThread(WelcomeActivity.this::promptMicThenListen);
+                        } else if ("perm".equals(id)) {
+                            // apres l explication du bonhomme, on affiche le dialogue systeme
+                            runOnUiThread(() -> ActivityCompat.requestPermissions(WelcomeActivity.this,
+                                    new String[]{Manifest.permission.RECORD_AUDIO}, 1));
+                        }
                     }
                 });
                 new Handler(Looper.getMainLooper()).postDelayed(this::sayHello, 600);
@@ -112,8 +117,12 @@ public class WelcomeActivity extends AppCompatActivity {
                 == PackageManager.PERMISSION_GRANTED) {
             listen();
         } else {
-            // la permission accordee declenche l ecoute (voir onRequestPermissionsResult)
-            ActivityCompat.requestPermissions(this,
+            // On explique AVANT le dialogue systeme (froid) pour ne pas l effrayer.
+            bubble.setText("Pour que tu puisses me repondre,\nton telephone va demander\nl'autorisation du micro.\n\nTouche \u00AB Autoriser \u00BB \uD83D\uDC4D");
+            if (ttsReady) tts.speak(
+                    "Pour que tu puisses me repondre, ton telephone va te demander l'autorisation du micro. Touche : Autoriser.",
+                    TextToSpeech.QUEUE_FLUSH, null, "perm");
+            else ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECORD_AUDIO}, 1);
         }
     }
