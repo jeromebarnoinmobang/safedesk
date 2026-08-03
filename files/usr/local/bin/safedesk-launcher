@@ -14,10 +14,10 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 DEFAULTS = {
-    "internet": {"label": "Internet", "icon": "\U0001F310", "cmd": ["wrapped-google-chrome"]},
+    "internet": {"label": "Internet", "icon": "\U0001F310", "cmd": ["wrapped-google-chrome", "--app=https://duckduckgo.com"]},
     "fichiers": {"label": "Mes fichiers", "icon": "\U0001F4C1", "cmd": ["dolphin"]},
     "mails": {"label": "Mes mails", "icon": "\u2709\uFE0F",
-              "cmd": ["wrapped-google-chrome", "https://mail.google.com"]},
+              "cmd": ["wrapped-google-chrome", "--app=https://mail.google.com"]},
 }
 CFG = "/config/.config/safedesk/apps.json"
 ENV = dict(os.environ, DISPLAY=":1", HOME="/config")
@@ -33,24 +33,34 @@ def apps():
     return merged
 
 
+def _name(win):
+    try:
+        r = subprocess.run(["xdotool", "getwindowname", win],
+                           env=ENV, capture_output=True, text=True, timeout=4)
+        return r.stdout.strip()
+    except Exception:
+        return ""
+
+
 def maximize_after(pid):
-    """Attend la fenetre du process lance et la met en plein ecran (best-effort)."""
-    for _ in range(20):
+    """Maximise la fenetre nouvellement mise au premier plan (best-effort).
+    Robuste pour Chrome --app (fenetre dediee qui prend le focus)."""
+    for _ in range(25):
         time.sleep(0.4)
         try:
-            out = subprocess.run(
-                ["xdotool", "search", "--onlyvisible", "--pid", str(pid)],
-                env=ENV, capture_output=True, text=True, timeout=4)
-            wins = [w for w in out.stdout.split() if w]
-            if wins:
-                w = wins[-1]
-                subprocess.run(["xdotool", "windowactivate", w], env=ENV, timeout=4)
-                # plein ecran KDE
-                subprocess.run(["xdotool", "key", "--window", w, "super+Page_Up"],
-                               env=ENV, timeout=4)
-                subprocess.run(["xdotool", "windowsize", w, "100%", "100%",
-                                "windowmove", w, "0", "0"], env=ENV, timeout=4)
-                return
+            r = subprocess.run(["xdotool", "getactivewindow"],
+                               env=ENV, capture_output=True, text=True, timeout=4)
+            w = r.stdout.strip()
+            if not w:
+                continue
+            nm = _name(w)
+            if not nm or nm.startswith("Desktop"):
+                continue
+            subprocess.run(["xdotool", "windowsize", w, "100%", "100%",
+                            "windowmove", w, "0", "0"], env=ENV, timeout=4)
+            subprocess.run(["xdotool", "key", "--window", w, "super+Page_Up"],
+                           env=ENV, timeout=4)
+            return
         except Exception:
             pass
 
