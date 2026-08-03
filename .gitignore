@@ -13,3 +13,5 @@ dist/
 builder-build.*
 landing/sd/SafeDesk.apk
 landing/.well-known/
+android/**/build/
+dist/
