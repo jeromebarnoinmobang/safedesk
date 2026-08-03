@@ -75,3 +75,32 @@ Piege : l'image officielle `syncthing/syncthing` tourne en **UID 1000** et n'uti
 
 - Un seul bureau actif a la fois (local **ou** VPS) -> converge au switch (~10 s).
 - Synchronise = le HOME (`/config`). Pas synchronises = paquets systeme (apt) ni volatils.
+
+## Rendu graphique : detection automatique du GPU
+
+`scripts/up-local.ps1` (Windows) et `scripts/up-local.sh` (Linux/macOS) sondent la
+capacite de rendu **dans un conteneur** avant de lancer, puis choisissent le profil :
+
+| Detection | Profil | Override compose |
+|---|---|---|
+| `/dev/dxg` + `libd3d12.so` (Windows/WSL2) | `zz-gpu-wsl` | `docker-compose.gpu-wsl.yml` |
+| `/dev/dri` (Linux natif) | `zz-gpu-dri` | `docker-compose.gpu-dri.yml` |
+| rien | `zz-no-gpu` | aucun (rendu logiciel) |
+
+Le profil est monte sur `/etc/chromium.d/zz-render` via la variable `RENDER_PROFILE`.
+
+**Piege verifie** : `nvidia-smi` qui repond ne prouve RIEN sur le rendu. Sur WSL2, le GPU
+est expose en compute (CUDA) via `/dev/dxg` ; l'OpenGL passe par les libs WSL montees
+(`/usr/lib/wsl`) et le driver **Mesa gallium d3d12**. Sans elles, ou en forcant `--use-gl=egl`,
+le process GPU de Chromium **quitte a l'initialisation** et les fenetres deviennent blanches.
+Ne pas forcer `--use-gl` : Chromium n'autorise que `egl-angle`.
+
+Verification (temporaire, dans le conteneur) :
+
+```bash
+docker exec -u 0 mobang-desktop apt-get install -y mesa-utils
+docker exec mobang-desktop sh -c 'DISPLAY=:1 LD_LIBRARY_PATH=/usr/lib/wsl/lib GALLIUM_DRIVER=d3d12 glxinfo -B'
+# attendu : OpenGL renderer string: D3D12 (NVIDIA ...) / Accelerated: yes
+```
+
+Le VPS n'a pas de carte : il reste en `zz-no-gpu` (`make deploy` force ce profil).

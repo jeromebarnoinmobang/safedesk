@@ -1,0 +1,2 @@
+# Profil GPU — Linux natif avec /dev/dri (Intel/AMD/nouveau).
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ignore-gpu-blocklist --enable-zero-copy"

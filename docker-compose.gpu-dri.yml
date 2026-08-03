@@ -1,0 +1,5 @@
+# Override GPU — Linux natif avec /dev/dri. LOCAL uniquement.
+services:
+  desktop:
+    devices:
+      - /dev/dri:/dev/dri

@@ -16,7 +16,7 @@ services:
     volumes:
       - config:/config
       # Sans GPU, la rasterisation GPU rend des fenetres blanches -> rendu logiciel.
-      - ./chromium.d/zz-no-gpu:/etc/chromium.d/zz-no-gpu:ro
+      - ./chromium.d/${RENDER_PROFILE:-zz-no-gpu}:/etc/chromium.d/zz-render:ro
     # 4g : en dessous de 3.8g, Chromium bascule sur --disable-dev-shm-usage (instable).
     shm_size: "4gb"
     restart: unless-stopped

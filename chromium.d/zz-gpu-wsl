@@ -1,0 +1,6 @@
+# Profil GPU — WSL2 / Docker Desktop (Windows).
+# Le GPU passe par /dev/dxg + les libs WSL (libd3d12) et le driver Mesa gallium d3d12.
+# Pas de --use-gl : Chromium n autorise que egl-angle, forcer autre chose tue le process GPU.
+export LD_LIBRARY_PATH="/usr/lib/wsl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export GALLIUM_DRIVER=d3d12
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ignore-gpu-blocklist --enable-zero-copy"
