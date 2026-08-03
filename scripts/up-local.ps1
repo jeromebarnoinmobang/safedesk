@@ -5,25 +5,28 @@ $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 
-$image = (Select-String -Path "$repo\docker-compose.yml" -Pattern '^\s*image:\s*(\S*webtop\S*)' |
-          Select-Object -First 1).Matches.Groups[1].Value
-
+$probeImage = "alpine:3.20"   # sonde legere : on teste des devices/libs, pas l application
 $probe = 'if [ -e /dev/dxg ] && [ -f /usr/lib/wsl/lib/libd3d12.so ]; then echo WSL; elif [ -d /dev/dri ]; then echo DRI; else echo NONE; fi'
 
-Write-Host "[detect] capacite de rendu GPU..." -NoNewline
-$mode = "NONE"
-try {
-  $out = & docker run --rm --gpus all -v /usr/lib/wsl:/usr/lib/wsl:ro `
-           --entrypoint sh $image -c $probe 2>$null
-  if ($LASTEXITCODE -eq 0 -and $out) { $mode = ($out | Select-Object -Last 1).Trim() }
-} catch { $mode = "NONE" }
-# sans --gpus (hote Linux avec /dev/dri seulement)
-if ($mode -eq "NONE") {
+function Get-RenderMode {
+  param([string[]]$ExtraArgs)
+  $args = @("run","--rm") + $ExtraArgs + @("-v","/usr/lib/wsl:/usr/lib/wsl:ro",$probeImage,"sh","-c",$probe)
   try {
-    $out = & docker run --rm --entrypoint sh $image -c $probe 2>$null
-    if ($LASTEXITCODE -eq 0 -and $out) { $mode = ($out | Select-Object -Last 1).Trim() }
+    $out = & docker @args 2>$null
+    # on ne garde que le verdict : le pull d image pollue la sortie
+    $verdict = $out | Where-Object { $_ -match '^(WSL|DRI|NONE)\s*$' } | Select-Object -Last 1
+    if ($verdict) { return $verdict.Trim() }
   } catch {}
+  return "NONE"
 }
+
+# s assurer que la sonde est en cache pour ne pas polluer la sortie
+& docker image inspect $probeImage *> $null
+if ($LASTEXITCODE -ne 0) { & docker pull $probeImage *> $null }
+
+Write-Host "[detect] capacite de rendu GPU..." -NoNewline
+$mode = Get-RenderMode -ExtraArgs @("--gpus","all")
+if ($mode -eq "NONE") { $mode = Get-RenderMode -ExtraArgs @() }
 
 $files = @("-f","docker-compose.yml","-f","docker-compose.local.yml")
 switch ($mode) {

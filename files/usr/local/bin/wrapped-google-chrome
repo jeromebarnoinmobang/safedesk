@@ -1,0 +1,15 @@
+#!/bin/bash
+# Lance Google Chrome en reprenant le profil de rendu detecte (GPU ou logiciel).
+# zz-render est monte par docker-compose selon la machine (voir scripts/up-local.*).
+
+CHROMIUM_FLAGS=""
+[ -r /etc/chromium.d/zz-render ] && . /etc/chromium.d/zz-render
+
+BIN=/usr/bin/google-chrome-stable
+
+# Meme logique que le wrapper Chromium de l image : sandbox si le conteneur le permet.
+if grep -q 'Seccomp:.0' /proc/1/status; then
+  exec ${BIN} --password-store=basic ${CHROMIUM_FLAGS} "$@"
+else
+  exec ${BIN} --password-store=basic --no-sandbox --test-type ${CHROMIUM_FLAGS} "$@"
+fi

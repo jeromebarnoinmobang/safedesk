@@ -7,3 +7,5 @@
 # Logs de deploiement
 *.log
 deploy-local.*
+build.log
+build.err.log

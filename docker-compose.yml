@@ -3,7 +3,9 @@
 # VPS   : docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 services:
   desktop:
-    image: lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b95589bc537e938c5ff6e7a5435887fc35d0f6
+    build:
+      context: .
+    image: mobang/desktop:kde
     container_name: mobang-desktop
     security_opt:
       - seccomp:unconfined

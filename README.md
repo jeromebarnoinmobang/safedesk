@@ -104,3 +104,17 @@ docker exec mobang-desktop sh -c 'DISPLAY=:1 LD_LIBRARY_PATH=/usr/lib/wsl/lib GA
 ```
 
 Le VPS n'a pas de carte : il reste en `zz-no-gpu` (`make deploy` force ce profil).
+
+## Navigateur : Google Chrome officiel
+
+Chromium (build non-brande) **ne peut pas** connecter un compte Google au navigateur :
+depuis le 15/03/2021 Google reserve le jeton OAuth de sync a Chrome officiel. La popup
+de connexion part en cul-de-sac et reste blanche — ce n'est pas un bug de cette install.
+
+L'image est donc construite localement (`Dockerfile`) a partir de webtop KDE + le paquet
+`google-chrome-stable` officiel. Chrome est lance par `/usr/local/bin/wrapped-google-chrome`,
+qui source le meme profil de rendu que Chromium (`/etc/chromium.d/zz-render`) : il herite
+donc automatiquement du GPU ou du rendu logiciel selon la machine.
+
+`docker compose up` construit l'image si besoin (`image: mobang/desktop:kde`).
+Le profil Chrome vit dans `/config` -> il est repliqué local <-> VPS par Syncthing.
