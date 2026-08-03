@@ -66,7 +66,7 @@ public class HomeActivity extends AppCompatActivity {
         col.addView(status);
 
         grid = new GridLayout(this);
-        grid.setColumnCount(senior ? 1 : 2);   // Confort = une seule colonne
+        grid.setColumnCount(2);   // toujours >= 2 colonnes (Confort garde de grandes tuiles)
         grid.setUseDefaultMargins(true);
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -135,12 +135,12 @@ public class HomeActivity extends AppCompatActivity {
         tv.setText(icon + "\n" + label);
         tv.setGravity(Gravity.CENTER);
         tv.setTextColor(Color.parseColor(fg));
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, senior ? 26 : 17);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, senior ? 21 : 17);
         tv.setLineSpacing(dp(senior ? 8 : 2), 1f);
         tv.setBackgroundColor(Color.parseColor(bg));
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
         lp.width = 0;
-        lp.height = dp(senior ? 150 : 130);
+        lp.height = dp(senior ? 160 : 130);
         lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
         int m = dp(senior ? 10 : 8);
         lp.setMargins(m, m, m, m);
