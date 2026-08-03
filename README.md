@@ -1,0 +1,58 @@
+# mobang-desktop — bureau KDE portable (local **ou** streamé depuis le VPS)
+
+La « brique OS » du projet : un bureau **KDE conteneurisé**, reproductible, qu'on lance :
+- **en local** (ta machine calcule, **zéro charge sur le VPS**), ou
+- **sur mobang (VPS)** et **streamé dans le navigateur** (pour vieux PC / accès distant).
+
+Même image → même bureau. L'état vit dans un volume. Tout est déclaratif → **reproductible**
+(`git clone` + `make` = même environnement partout).
+
+---
+
+## « Est-ce que le local décharge le VPS ? » → OUI
+Le conteneur s'exécute **là où tu le lances**, jamais aux deux endroits :
+- **local** → ton CPU/RAM bossent, le VPS n'est **pas** sollicité (hors sync du home, négligeable). Marche hors-ligne.
+- **VPS** → le VPS bosse et streame.
+
+C'est **l'un OU l'autre**. On ne streame depuis le VPS **que** quand la machine cible est trop faible
+(vieux PC = juste un navigateur). Machine costaude = local, VPS libre.
+
+---
+
+## Prérequis
+- Docker + Docker Compose.
+- (VPS uniquement) Traefik déjà en place — c'est ton cas sur mobang.
+
+## Lancer en LOCAL
+```bash
+cp .env.example .env        # renseigne user/mot de passe/TZ
+make local                  # = docker compose ... up -d
+# → http://localhost:3000   (bureau KDE dans ton navigateur)
+```
+
+## Déployer sur le VPS (mobang), streamé + derrière Traefik
+```bash
+# renseigne DESKTOP_DOMAIN + DESKTOP_BASICAUTH dans .env
+make deploy
+# → https://$DESKTOP_DOMAIN  (HTTPS + auth obligatoires)
+```
+
+---
+
+## ⚠️ Sécurité — non négociable
+Un bureau accessible = un **accès complet à une machine**. Sur le VPS, il **doit** être :
+- en **HTTPS** (Traefik s'en charge),
+- derrière une **authentification** (basic auth / middleware) — **jamais exposé nu**.
+Voir `docker-compose.vps.yml`.
+
+## Reproductibilité
+- Image **épinglée** (tag **+ digest `@sha256:`**) — pas de `:latest` en prod.
+- Tout l'état dans le volume `config` (home KDE). Rien de durable dans le conteneur.
+- Config par `.env`. Aucune étape manuelle cachée.
+
+## Feuille de route (les briques, dans l'ordre)
+1. [x] **Base** : bureau KDE conteneurisé, local + VPS streamé — *ce repo*.
+2. [ ] **Pont MCP** : exposer les capacités du bureau à un LLM (agnostique).
+3. [ ] **Assistant voix** (STT/TTS) branché sur le pont.
+4. [ ] **Surface adaptée + garde-fous** (profils, anti-arnaque, kiosk).
+5. [ ] **Sync du home** local ↔ VPS.

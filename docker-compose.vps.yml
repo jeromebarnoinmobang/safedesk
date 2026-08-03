@@ -1,0 +1,22 @@
+# Override VPS (mobang) : PAS de port publié — Traefik route + HTTPS + AUTH.
+# Usage : docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+#
+# ⚠️ Adapte les valeurs à TA config Traefik existante (nom du réseau,
+#    entrypoint, certresolver). Ne JAMAIS exposer ce bureau sans auth.
+services:
+  desktop:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.desktop.rule=Host(`${DESKTOP_DOMAIN:?definis DESKTOP_DOMAIN dans .env}`)"
+      - "traefik.http.routers.desktop.entrypoints=websecure"          # adapte
+      - "traefik.http.routers.desktop.tls.certresolver=letsencrypt"   # adapte
+      - "traefik.http.services.desktop.loadbalancer.server.port=3000"
+      # --- AUTH OBLIGATOIRE (basic auth) ---
+      - "traefik.http.routers.desktop.middlewares=desktop-auth"
+      - "traefik.http.middlewares.desktop-auth.basicauth.users=${DESKTOP_BASICAUTH:?genere un hash htpasswd}"
+    networks:
+      - proxy          # adapte au nom de ton réseau Traefik externe
+
+networks:
+  proxy:
+    external: true     # le réseau où tourne déjà ton Traefik

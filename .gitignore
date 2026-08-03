@@ -1,0 +1,5 @@
+# Secrets / config locale
+.env
+
+# Volumes / données éventuelles montées en bind
+/data/

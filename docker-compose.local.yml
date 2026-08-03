@@ -1,0 +1,6 @@
+# Override LOCAL : bureau exposé sur localhost UNIQUEMENT (jamais sur le réseau).
+# Usage : docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+services:
+  desktop:
+    ports:
+      - "127.0.0.1:3000:3000"     # http://localhost:3000

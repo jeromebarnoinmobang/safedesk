@@ -1,0 +1,28 @@
+# Bureau KDE conteneurisé — base commune (local + VPS).
+# Image LinuxServer "webtop" : bureau Linux accessible au navigateur (KasmVNC).
+#
+# ⚠️ REPRODUCTIBILITÉ : épingle une version précise (tag + digest), pas ":latest".
+#    Vérifie le tag KDE exact ici : https://docs.linuxserver.io/images/docker-webtop
+#    Exemple une fois épinglé :
+#      image: lscr.io/linuxserver/webtop:debian-kde@sha256:<digest>
+
+services:
+  desktop:
+    image: lscr.io/linuxserver/webtop:debian-kde   # TODO: épingler @sha256:...
+    container_name: mobang-desktop
+    security_opt:
+      - seccomp:unconfined                 # requis par certains bureaux Kasm
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Paris}
+      - CUSTOM_USER=${DESKTOP_USER:-jerome}
+      - PASSWORD=${DESKTOP_PASSWORD:?definis DESKTOP_PASSWORD dans .env}
+    volumes:
+      - config:/config                     # <- tout l'état (home KDE) vit ici
+    shm_size: "1gb"
+    restart: unless-stopped
+    # Pas de "ports" ici : géré par l'override (local = localhost, VPS = Traefik).
+
+volumes:
+  config:
