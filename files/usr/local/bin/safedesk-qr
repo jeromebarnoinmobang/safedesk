@@ -36,7 +36,7 @@ if [ -d /landing ] && [ -w /landing ]; then
     WK=/tmp/sd-pub/work; rm -rf "$WK"; mkdir -p "$WK/assets"
     printf %s "$JSON" > "$WK/assets/safedesk.json"
     cp /tmp/sd-pub/SafeDesk-base.apk "$WK/app.apk"
-    ( cd "$WK" && zip -q app.apk assets/safedesk.json )
+    ( cd "$WK" && zip -q app.apk assets/safedesk.json ) || exit 0
     BT=$(ls -d "${ANDROID_HOME:-/opt/android-sdk}"/build-tools/* | sort -V | tail -1)
     KEYDIR="$HOME/.config/safedesk/keys"; PASS_=$(cat "$KEYDIR/.pass")
     "$BT/zipalign" -f -p 4 "$WK/app.apk" "$WK/aligned.apk"

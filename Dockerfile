@@ -109,7 +109,7 @@ RUN chmod +x /usr/local/bin/safedesk-forge
 
 # QR d onboarding affiches depuis le bureau (icone "QR telephone")
 RUN set -eux; apt-get update; \
-    apt-get install -y --no-install-recommends qrencode; \
+    apt-get install -y --no-install-recommends qrencode zip; \
     rm -rf /var/lib/apt/lists/*
 COPY files/usr/local/bin/safedesk-qr /usr/local/bin/safedesk-qr
 COPY files/usr/share/applications/safedesk-qr.desktop /usr/share/applications/safedesk-qr.desktop
