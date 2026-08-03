@@ -1,16 +1,33 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="200dp" android:height="200dp"
     android:viewportWidth="100" android:viewportHeight="100">
-    <!-- corps -->
-    <path android:fillColor="#14B8A6" android:pathData="M28,58 h44 a10,10 0 0 1 10,10 v14 a6,6 0 0 1 -6,6 h-52 a6,6 0 0 1 -6,-6 v-14 a10,10 0 0 1 10,-10 z"/>
+    <!-- oreilles -->
+    <path android:fillColor="#F4A340" android:pathData="M24,36 L30,12 L47,32 Z"/>
+    <path android:fillColor="#F4A340" android:pathData="M76,36 L70,12 L53,32 Z"/>
+    <path android:fillColor="#F7B7C6" android:pathData="M30,31 L33,18 L43,30 Z"/>
+    <path android:fillColor="#F7B7C6" android:pathData="M70,31 L67,18 L57,30 Z"/>
     <!-- tete -->
-    <path android:fillColor="#2DD4BF" android:pathData="M50,14 m-24,0 a24,24 0 1 0 48,0 a24,24 0 1 0 -48,0"/>
+    <path android:fillColor="#F4A340" android:pathData="M50,55 m-34,0 a34,34 0 1 0 68,0 a34,34 0 1 0 -68,0"/>
+    <!-- rayures front -->
+    <path android:fillColor="#E08E2A" android:pathData="M50,26 l-4,10 h8 z"/>
+    <path android:fillColor="#E08E2A" android:pathData="M40,28 l-3,8 h6 z"/>
+    <path android:fillColor="#E08E2A" android:pathData="M60,28 l-3,8 h6 z"/>
+    <!-- joues roses -->
+    <path android:fillColor="#F7B7C6" android:pathData="M33,64 m-6,0 a6,4 0 1 0 12,0 a6,4 0 1 0 -12,0"/>
+    <path android:fillColor="#F7B7C6" android:pathData="M67,64 m-6,0 a6,4 0 1 0 12,0 a6,4 0 1 0 -12,0"/>
     <!-- yeux -->
-    <path android:fillColor="#0F1115" android:pathData="M40,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0"/>
-    <path android:fillColor="#0F1115" android:pathData="M60,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0"/>
-    <!-- sourire -->
-    <path android:strokeColor="#0F1115" android:strokeWidth="4" android:strokeLineCap="round"
-        android:fillColor="#00000000" android:pathData="M39,24 Q50,34 61,24"/>
-    <!-- main qui fait coucou -->
-    <path android:fillColor="#2DD4BF" android:pathData="M82,44 m-8,0 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M38,52 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M62,52 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0"/>
+    <path android:fillColor="#2B3640" android:pathData="M39,53 m-5,0 a5,5 0 1 0 10,0 a5,5 0 1 0 -10,0"/>
+    <path android:fillColor="#2B3640" android:pathData="M61,53 m-5,0 a5,5 0 1 0 10,0 a5,5 0 1 0 -10,0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M41,51 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M63,51 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0"/>
+    <!-- nez -->
+    <path android:fillColor="#E8879B" android:pathData="M45,62 L55,62 L50,68 Z"/>
+    <!-- bouche -->
+    <path android:strokeColor="#2B3640" android:strokeWidth="2" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:pathData="M50,68 L50,72 M50,72 Q44,76 39,72 M50,72 Q56,76 61,72"/>
+    <!-- moustaches -->
+    <path android:strokeColor="#F9DCC0" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:pathData="M16,60 L34,62 M16,66 L34,66 M84,60 L66,62 M84,66 L66,66"/>
 </vector>
