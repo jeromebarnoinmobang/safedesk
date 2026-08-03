@@ -31,6 +31,10 @@ struct WebView: UIViewRepresentable {
         let conf = WKWebViewConfiguration()
         conf.allowsInlineMediaPlayback = true
         conf.mediaTypesRequiringUserActionForPlayback = []
+        let dprFix = WKUserScript(
+            source: "(function(){try{Object.defineProperty(window,'devicePixelRatio',{get:function(){return 1;},configurable:true});}catch(e){}})();",
+            injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        conf.userContentController.addUserScript(dprFix)
         let web = WKWebView(frame: .zero, configuration: conf)
         web.navigationDelegate = context.coordinator
         web.scrollView.bounces = false

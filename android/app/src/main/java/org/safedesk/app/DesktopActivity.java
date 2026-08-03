@@ -19,6 +19,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
@@ -39,6 +41,16 @@ public class DesktopActivity extends AppCompatActivity {
 
         web = new WebView(this);
         setContentView(web);
+
+        // Session a l echelle du TELEPHONE : on neutralise le devicePixelRatio pour
+        // que le stream demande une resolution logique (~400pt de large) -> interface
+        // grande et tapable. Le PC, lui, garde sa pleine resolution.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(web,
+                "(function(){try{Object.defineProperty(window,'devicePixelRatio'," +
+                "{get:function(){return 1;},configurable:true});}catch(e){}})();",
+                new java.util.HashSet<>(java.util.Arrays.asList("*")));
+        }
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
