@@ -15,6 +15,19 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends google-chrome-stable; \
     rm -rf /var/lib/apt/lists/*
 
+
+# Claude Desktop (beta Linux : Chat + Cowork + Code) — depot apt officiel Anthropic.
+# La cle est verifiee par empreinte : le build ECHOUE si elle ne correspond pas.
+RUN set -eux; \
+    curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+      https://downloads.claude.ai/claude-desktop/key.asc; \
+    gpg --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+      | grep -q '31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE'; \
+    echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
+      > /etc/apt/sources.list.d/claude-desktop.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends claude-desktop; \
+    rm -rf /var/lib/apt/lists/*
 # Lanceur maison : reutilise le profil de rendu (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
 RUN chmod +x /usr/local/bin/wrapped-google-chrome \

@@ -118,3 +118,17 @@ donc automatiquement du GPU ou du rendu logiciel selon la machine.
 
 `docker compose up` construit l'image si besoin (`image: mobang/desktop:kde`).
 Le profil Chrome vit dans `/config` -> il est repliqué local <-> VPS par Syncthing.
+
+## Claude Desktop (beta Linux)
+
+Le bouton de telechargement de claude.com affiche "Non disponible pour Linux" : c'est une
+mauvaise detection de plateforme. Le paquet **existe** (beta) et fournit Chat, Cowork et Code.
+Il est installe dans l'image depuis le depot apt officiel Anthropic ; la cle de signature est
+**verifiee par empreinte** dans le Dockerfile (`31DDDE24...1A7ECACE`) -> le build echoue si elle
+ne correspond pas.
+
+Prerequis : Debian 12+ / Ubuntu 22.04+, amd64 ou arm64 (l'image est Debian 13 : OK).
+
+Absent de la beta Linux (a savoir pour la brique pont MCP) :
+- **Computer Use** (controle ecran/apps) : indisponible sur Linux.
+- **Dictee vocale** : indisponible dans l'app (dispo via la CLI).
