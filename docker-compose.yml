@@ -7,6 +7,9 @@ services:
   desktop:
     build:
       context: .
+      args:
+        INSTALL_CHROME: ${INSTALL_CHROME:-false}
+        INSTALL_CLAUDE: ${INSTALL_CLAUDE:-false}
     image: mobang/desktop:kde
     container_name: mobang-desktop
     security_opt:

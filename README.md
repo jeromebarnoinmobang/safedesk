@@ -26,8 +26,10 @@ systeme, et un assistant l aide et agit a sa place quand il le demande.
   de navigateur suivent l utilisateur.
 - **Detection automatique du GPU** : accelere le rendu quand la machine le permet, retombe
   proprement en rendu logiciel sinon — sans configuration.
-- **Navigateurs et outils** : Chromium, Google Chrome, VS Code, GitHub CLI, Node.
-- **Claude Desktop** (beta Linux) preinstalle, cle de depot verifiee par empreinte.
+- **Outils** : Chromium, VS Code, GitHub CLI, Node, git.
+- **Composants proprietaires optionnels**, desactives par defaut : Google Chrome et Claude
+  Desktop s installent uniquement si vous le demandez (`INSTALL_CHROME=true` /
+  `INSTALL_CLAUDE=true` dans `.env`). L image par defaut ne contient que du logiciel libre.
 
 ## Demarrage rapide
 
