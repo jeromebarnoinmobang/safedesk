@@ -1,0 +1,27 @@
+#!/usr/bin/with-contenv bash
+# webtop REGENERE sa conf nginx au demarrage : on injecte /safedesk/ apres coup.
+CONF=/etc/nginx/sites-available/default
+for i in $(seq 1 60); do
+  [ -f "$CONF" ] && grep -q "auth_basic_user_file" "$CONF" && break
+  sleep 1
+done
+if ! grep -q "location /safedesk/" "$CONF" 2>/dev/null; then
+  # inserer le bloc apres CHAQUE ligne auth_basic_user_file (les 2 vhosts)
+  awk '
+    { print }
+    /auth_basic_user_file/ {
+      print "  location /safedesk/ {"
+      print "    proxy_pass http://127.0.0.1:3010/;"
+      print "    proxy_read_timeout 30s;"
+      print "  }"
+    }
+  ' "$CONF" > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"
+fi
+# recharger si nginx tourne (sinon il demarrera avec la bonne conf)
+for i in $(seq 1 30); do
+  if pgrep -x nginx >/dev/null; then
+    nginx -t >/dev/null 2>&1 && nginx -s reload 2>/dev/null && break
+  fi
+  sleep 2
+done
+sleep infinity
