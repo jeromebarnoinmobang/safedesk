@@ -10,11 +10,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.RecognizerIntent;
-import android.speech.tts.TextToSpeech;
-import android.speech.tts.UtteranceProgressListener;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
@@ -30,13 +29,11 @@ import androidx.core.content.ContextCompat;
 import java.util.List;
 import java.util.Locale;
 
-/** Accueil "super assiste" : chaton qui parle. Si le son est coupe/bas,
- *  il fait de GRANDS SIGNES ecrits pour dire de monter le son, et le monte. */
 public class WelcomeActivity extends AppCompatActivity {
 
-    private TextToSpeech tts;
+    private Speaker speaker;
     private AudioManager am;
-    private boolean ttsReady, soundReady, greeted;
+    private boolean soundReady, greeted;
     private TextView bubble;
     private ImageView kitten;
     private Button talk;
@@ -46,12 +43,13 @@ public class WelcomeActivity extends AppCompatActivity {
     private static final String BUBBLE_HELLO =
             "Bonjour !\nTu peux me parler.\nDis-moi : \u00AB Bonjour \u00BB \uD83D\uDC4B";
     private static final String BUBBLE_SOUND =
-            "\uD83D\uDD08 Le son est trop bas !\n\nMonte le son pour m'entendre :\nappuie sur les boutons de VOLUME,\nsur le cote du telephone. \uD83D\uDC49";
+            "\uD83D\uDD08 Le son est trop bas !\n\nMonte le son pour m'entendre :\nles boutons de VOLUME,\nsur le cote du telephone. \uD83D\uDC49";
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        speaker = new Speaker(this);
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -95,39 +93,16 @@ public class WelcomeActivity extends AppCompatActivity {
         col.addView(cont);
         setContentView(col);
 
-        // moteur Google explicite (le defaut est parfois nul)
-        tts = new TextToSpeech(this, s -> {
-            if (s == TextToSpeech.SUCCESS) {
-                tts.setLanguage(Locale.FRENCH);
-                ttsReady = true;
-                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    public void onStart(String id) {}
-                    public void onError(String id) {}
-                    public void onDone(String id) {
-                        if ("hi".equals(id)) runOnUiThread(WelcomeActivity.this::promptMicThenListen);
-                        else if ("perm".equals(id)) runOnUiThread(() ->
-                                ActivityCompat.requestPermissions(WelcomeActivity.this,
-                                        new String[]{Manifest.permission.RECORD_AUDIO}, 1));
-                    }
-                });
-                runOnUiThread(WelcomeActivity.this::maybeGreet);
-            }
-        }, "com.google.android.tts");
-
         ensureSound();
     }
 
-    // ----- robustesse audio -----
     private void ensureSound() {
         int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int vol = am.getStreamVolume(AudioManager.STREAM_MUSIC);
-        if (vol >= Math.max(1, (int) (max * 0.25))) { soundOk(); return; }
-        // trop bas : on tente de monter nous-memes...
-        try { am.setStreamVolume(AudioManager.STREAM_MUSIC, (int) (max * 0.7),
-                AudioManager.FLAG_SHOW_UI); } catch (Exception ignored) {}
-        vol = am.getStreamVolume(AudioManager.STREAM_MUSIC);
-        if (vol >= Math.max(1, (int) (max * 0.25))) { soundOk(); return; }
-        // ...sinon GRANDS SIGNES ecrits
+        int target = Math.max(1, (int) (max * 0.25));
+        if (vol >= target) { soundOk(); return; }
+        try { am.setStreamVolume(AudioManager.STREAM_MUSIC, (int) (max * 0.7), AudioManager.FLAG_SHOW_UI); } catch (Exception ignored) {}
+        if (am.getStreamVolume(AudioManager.STREAM_MUSIC) >= target) { soundOk(); return; }
         bubble.setText(BUBBLE_SOUND);
         talk.setText("\uD83D\uDD0A  Monter le son");
         shake(kitten);
@@ -137,59 +112,50 @@ public class WelcomeActivity extends AppCompatActivity {
         soundReady = true;
         bubble.setText(BUBBLE_HELLO);
         talk.setText("\uD83C\uDFA4  Parle-moi");
-        maybeGreet();
+        if (kitten.getAnimation() != null) kitten.clearAnimation();
+        if (!greeted) { greeted = true;
+            new Handler(Looper.getMainLooper()).postDelayed(
+                    () -> speaker.play(HELLO, this::promptMicThenListen), 400); }
     }
 
     private void onPrimary() {
-        if (!soundReady) {   // en mode "monter le son"
+        if (!soundReady) {
             int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-            try { am.setStreamVolume(AudioManager.STREAM_MUSIC, (int) (max * 0.7),
-                    AudioManager.FLAG_SHOW_UI); } catch (Exception ignored) {}
+            try { am.setStreamVolume(AudioManager.STREAM_MUSIC, (int) (max * 0.7), AudioManager.FLAG_SHOW_UI); } catch (Exception ignored) {}
             ensureSound();
-        } else {
-            listen();
-        }
+        } else { listen(); }
     }
 
     @Override
     public boolean onKeyDown(int code, KeyEvent e) {
         boolean r = super.onKeyDown(code, e);
-        if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) {
+        if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN)
             new Handler(Looper.getMainLooper()).postDelayed(() -> { if (!soundReady) ensureSound(); }, 250);
-        }
         return r;
     }
 
-    private void shake(android.view.View v) {
+    private void shake(View v) {
         TranslateAnimation a = new TranslateAnimation(-dp(10), dp(10), 0, 0);
-        a.setDuration(120); a.setRepeatCount(Animation.INFINITE);
-        a.setRepeatMode(Animation.REVERSE);
+        a.setDuration(120); a.setRepeatCount(Animation.INFINITE); a.setRepeatMode(Animation.REVERSE);
         v.startAnimation(a);
-    }
-
-    private void maybeGreet() {
-        if (ttsReady && soundReady && !greeted) {
-            greeted = true;
-            if (kitten.getAnimation() != null) kitten.clearAnimation();
-            tts.speak(HELLO, TextToSpeech.QUEUE_FLUSH, null, "hi");
-        }
     }
 
     private void promptMicThenListen() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED) { listen(); return; }
         bubble.setText("Pour que tu puisses me repondre,\nton telephone va demander\nl'autorisation du micro.\n\nTouche \u00AB Autoriser \u00BB \uD83D\uDC4D");
-        if (ttsReady) tts.speak(
-                "Pour que tu puisses me repondre, ton telephone va te demander l'autorisation du micro. Touche : Autoriser.",
-                TextToSpeech.QUEUE_FLUSH, null, "perm");
-        else ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+        speaker.play("Pour que tu puisses me repondre, ton telephone va te demander l'autorisation du micro. Touche : Autoriser.",
+                () -> runOnUiThread(() -> ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.RECORD_AUDIO}, 1)));
     }
 
     private void listen() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) { promptMicThenListen(); return; }
-        if (ttsReady) tts.speak("Je t'ecoute.", TextToSpeech.QUEUE_FLUSH, null, "l");
+        speaker.play("Je t'ecoute.", () -> runOnUiThread(this::startRecognizer));
+    }
+
+    private void startRecognizer() {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR");
@@ -203,10 +169,8 @@ public class WelcomeActivity extends AppCompatActivity {
             List<String> r = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String said = (r != null && !r.isEmpty()) ? r.get(0).toLowerCase(Locale.FRENCH) : "";
             if (said.contains("bonjour") || said.contains("salut") || said.contains("coucou")) {
-                bubble.setText("Bonjour a toi ! \uD83D\uDE0A\nBravo, tu m'as parle.\nQue veux-tu faire ?");
-                if (ttsReady) tts.speak("Bonjour a toi ! Bravo, tu m'as parle. Je vais te montrer.",
-                        TextToSpeech.QUEUE_FLUSH, null, "ok");
-                new Handler(Looper.getMainLooper()).postDelayed(this::goTutos, 3200);
+                bubble.setText("Bonjour a toi ! \uD83D\uDE0A\nBravo, tu m'as parle.\nJe vais te montrer.");
+                speaker.play("Bonjour a toi ! Bravo, tu m'as parle. Je vais te montrer.", this::goTutos);
             } else goTutos();
         }
     }
@@ -217,7 +181,7 @@ public class WelcomeActivity extends AppCompatActivity {
         if (rq == 1 && g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) listen();
     }
 
-    private void goTutos() { startActivity(new Intent(this, TutoActivity.class)); finish(); }
+    private void goTutos() { runOnUiThread(() -> { startActivity(new Intent(this, TutoActivity.class)); finish(); }); }
     private void goHome()  { startActivity(new Intent(this, HomeActivity.class)); finish(); }
 
     private Button big(String t, String bg, String fg, int sp, int h) {
@@ -232,12 +196,8 @@ public class WelcomeActivity extends AppCompatActivity {
         return b;
     }
 
-    @Override protected void onDestroy() {
-        if (tts != null) { tts.stop(); tts.shutdown(); }
-        super.onDestroy();
-    }
+    @Override protected void onDestroy() { if (speaker != null) speaker.shutdown(); super.onDestroy(); }
     private int dp(int v) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v,
-                getResources().getDisplayMetrics());
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics());
     }
 }

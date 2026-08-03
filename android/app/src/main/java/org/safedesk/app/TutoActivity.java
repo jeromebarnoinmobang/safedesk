@@ -40,27 +40,19 @@ public class TutoActivity extends AppCompatActivity {
     private final List<Tuto> tutos = new ArrayList<>();
     private Tuto current;
     private int step;
-    private TextToSpeech tts;
-    private boolean ttsReady;
+    private Speaker speaker;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         loadTutos();
-        tts = new TextToSpeech(this, s -> {
-            if (s == TextToSpeech.SUCCESS) {
-                tts.setLanguage(Locale.FRENCH);
-                ttsReady = true;
-                new Handler(Looper.getMainLooper()).postDelayed(() ->
-                        speak("Bonjour. Tu peux me parler, ou toucher une grande case."), 500);
-            }
-        });
+        speaker = new Speaker(this);
+        new Handler(Looper.getMainLooper()).postDelayed(() ->
+                speak("Bonjour. Tu peux me parler, ou choisir dans la liste."), 500);
         showList();
     }
 
-    private void speak(String s) {
-        if (ttsReady) tts.speak(s, TextToSpeech.QUEUE_FLUSH, null, "sd");
-    }
+    private void speak(String s) { speaker.play(s, null); }
 
     private void loadTutos() {
         try {
@@ -271,7 +263,7 @@ public class TutoActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        if (tts != null) { tts.stop(); tts.shutdown(); }
+        if (speaker != null) speaker.shutdown();
         super.onDestroy();
     }
 
