@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# UN SEUL QR : https://<domaine>/sd#<config>
-#   - avant installation : la camera ouvre la page /sd (bouton Installer)
-#   - apres : Android (App Links) ouvre directement l app, deja configuree
-# La config voyage dans le #fragment : elle ne quitte JAMAIS le telephone.
-# Publication auto (si /landing est monte) : forge l APK avec la cle stable du home
-# et depose APK + assetlinks.json pour le domaine.
+# UN SEUL SCAN : le bureau forge une application PERSONNALISEE (config cuite dans
+# l APK) et la publie sous une URL a jeton. Le QR pointe cette URL :
+#   scanner -> installer -> ouvrir : l utilisateur est chez lui. Aucun 2e scan.
+# Le #fragment reste dans le lien en ceinture-bretelles (App Links / re-scan).
+# Sans /landing monte (bureau local), retombe sur le QR simple https#fragment.
 set -euo pipefail
 export DISPLAY="${DISPLAY:-:1}"
 
@@ -22,26 +21,62 @@ OUT="$HOME/.cache/safedesk-qr"; mkdir -p "$OUT"; chmod 700 "$OUT"
 
 JSON=$(printf '{"v":1,"name":"%s","url":"%s","user":"%s","pass":"%s"}' "$NAME" "$URL" "$CUSTOM_USER" "$PASSWORD")
 DATA=$(printf %s "$JSON" | base64 -w0 | tr "+/" "-_" | tr -d "=")
-LINK="$URL/sd#$DATA"
-qrencode -s 10 -m 2 -o "$OUT/one.png" "$LINK"
 
-# Publication (arriere-plan, best-effort) : APK forge + assetlinks pour l App Link
+LINK="$URL/sd#$DATA"
+STATUS="QR simple (pas de publication : /landing absent)"
+
 if [ -d /landing ] && [ -w /landing ]; then
+  TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
+  DEST="/landing/sd/t/$TOKEN"
+  LINK="$URL/sd/t/$TOKEN/#$DATA"
+  STATUS="application personnalisee en cours de publication..."
   (
     set +e
-    safedesk-forge -n SafeDesk.apk -o /tmp/sd-pub >/tmp/sd-pub.log 2>&1 || exit 0
-    mkdir -p /landing/sd /landing/.well-known
-    cp /tmp/sd-pub/SafeDesk.apk /landing/sd/SafeDesk.apk
-    KEYDIR="$HOME/.config/safedesk/keys"
+    safedesk-forge -n SafeDesk-base.apk -o /tmp/sd-pub >/tmp/sd-pub.log 2>&1 || exit 0
+    WK=/tmp/sd-pub/work; rm -rf "$WK"; mkdir -p "$WK/assets"
+    printf %s "$JSON" > "$WK/assets/safedesk.json"
+    cp /tmp/sd-pub/SafeDesk-base.apk "$WK/app.apk"
+    ( cd "$WK" && zip -q app.apk assets/safedesk.json )
+    BT=$(ls -d "${ANDROID_HOME:-/opt/android-sdk}"/build-tools/* | sort -V | tail -1)
+    KEYDIR="$HOME/.config/safedesk/keys"; PASS_=$(cat "$KEYDIR/.pass")
+    "$BT/zipalign" -f -p 4 "$WK/app.apk" "$WK/aligned.apk"
+    "$BT/apksigner" sign --ks "$KEYDIR/forge.jks" --ks-pass "pass:$PASS_" \
+      --ks-key-alias safedesk --key-pass "pass:$PASS_" \
+      --out "$WK/final.apk" "$WK/aligned.apk" || exit 0
+    mkdir -p "$DEST"
+    cp "$WK/final.apk" "$DEST/SafeDesk.apk"
+    cat > "$DEST/index.html" <<PAGE
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>$NAME</title>
+<style>body{background:#0f1115;color:#e8ecf3;font-family:system-ui,sans-serif;margin:0;
+min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:28px;text-align:center}h1{font-size:24px;margin:0 0 8px}
+p{color:#8b94a7;max-width:420px;line-height:1.55;font-size:15px}
+a.btn{display:block;background:#2dd4bf;color:#0f1115;font-weight:700;font-size:17px;
+padding:16px 34px;border-radius:16px;text-decoration:none;margin:24px 0 10px}
+small{color:#5b6472}</style></head><body>
+<h1>$NAME</h1>
+<p>Ton espace est pret. Installe ton application personnelle :</p>
+<a class="btn" href="SafeDesk.apk">Installer mon application</a>
+<p>Puis <b>ouvre-la</b> : tu es deja chez toi.<br>Rien d autre a faire.</p>
+<small>Application preparee pour toi — ne partage pas ce lien.</small>
+</body></html>
+PAGE
+    # assetlinks (App Links) avec l empreinte de la cle stable
     if [ -f "$KEYDIR/forge.jks" ]; then
       FP=$(keytool -list -v -keystore "$KEYDIR/forge.jks" -alias safedesk \
-             -storepass "$(cat "$KEYDIR/.pass")" 2>/dev/null \
-           | sed -n "s/.*SHA256: //p" | head -1)
+             -storepass "$PASS_" 2>/dev/null | sed -n "s/.*SHA256: //p" | head -1)
+      mkdir -p /landing/.well-known
       [ -n "$FP" ] && printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"org.safedesk.app","sha256_cert_fingerprints":["%s"]}}]' "$FP" \
         > /landing/.well-known/assetlinks.json
     fi
+    # purge des anciennes publications (garde les 3 dernieres)
+    ls -dt /landing/sd/t/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
   ) &
 fi
+
+qrencode -s 10 -m 2 -o "$OUT/one.png" "$LINK"
 
 cat > "$OUT/index.html" <<HTML
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>$NAME — telephone</title>
@@ -50,17 +85,15 @@ body{background:#0f1115;color:#e8ecf3;font-family:sans-serif;display:flex;flex-d
      align-items:center;justify-content:center;min-height:96vh;margin:0;padding:20px;text-align:center}
 h1{font-size:26px;margin:0 0 4px} .sub{color:#8b94a7;margin-bottom:22px}
 img{background:#fff;padding:16px;border-radius:16px;width:min(46vh,420px)}
-ol{color:#8b94a7;font-size:14px;line-height:1.7;text-align:left;max-width:430px}
-b{color:#e8ecf3}
+p{color:#8b94a7;font-size:14px;line-height:1.7;max-width:430px}
+b{color:#e8ecf3} .st{color:#5b6472;font-size:12px;margin-top:8px}
 .warn{margin-top:10px;color:#eab308;font-size:12.5px;max-width:520px}
 </style></head><body>
-<h1>$NAME</h1><div class="sub">Un seul code, pour tout</div>
+<h1>$NAME</h1><div class="sub">Scanner &rarr; installer &rarr; ouvrir. C est tout.</div>
 <img src="one.png" alt="QR SafeDesk">
-<ol>
-<li>Scanner avec l <b>appareil photo</b> → <b>Installer</b> l application.</li>
-<li><b>Re-scanner le meme code</b> → l espace s ouvre, deja configure.</li>
-</ol>
-<div class="warn">Ce code contient les identifiants de CET espace : ne le montrer qu a la personne concernee.</div>
+<p>Ton application arrive <b>deja configuree</b> : a l ouverture, tu es chez toi.</p>
+<div class="st">$STATUS</div>
+<div class="warn">Ce code donne acces a CET espace : ne le montrer qu a la personne concernee.</div>
 </body></html>
 HTML
 

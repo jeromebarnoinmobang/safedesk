@@ -48,12 +48,16 @@ struct WebView: UIViewRepresentable {
         var tries = 0
         init(user: String, pass: String) { self.user = user; self.pass = pass }
 
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            tries = 0
+        }
+
         func webView(_ webView: WKWebView,
                      didReceive challenge: URLAuthenticationChallenge,
                      completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
             let method = challenge.protectionSpace.authenticationMethod
             if method == NSURLAuthenticationMethodHTTPBasic || method == NSURLAuthenticationMethodDefault {
-                if tries < 3 {
+                if tries < 8 {
                     tries += 1
                     completionHandler(.useCredential,
                                       URLCredential(user: user, password: pass, persistence: .forSession))

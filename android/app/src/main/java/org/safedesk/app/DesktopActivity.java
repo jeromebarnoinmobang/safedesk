@@ -63,9 +63,15 @@ public class DesktopActivity extends AppCompatActivity {
 
         web.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageFinished(WebView view, String url) {
+                // le chargement a abouti : l auth est bonne, on rearme le garde-fou
+                authTries = 0;
+            }
+
+            @Override
             public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler,
                                                   String host, String realm) {
-                if (authTries++ < 3) {
+                if (authTries++ < 8) {
                     handler.proceed(Config.user(DesktopActivity.this),
                                     Config.pass(DesktopActivity.this));
                 } else {

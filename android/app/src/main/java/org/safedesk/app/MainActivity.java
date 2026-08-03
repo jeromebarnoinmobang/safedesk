@@ -33,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
         Uri link = getIntent().getData();
         if (link != null && applyCode(link.toString())) return;
         if (Config.isConfigured(this)) { openDesktop(); return; }
+        // Application personnalisee : la config peut etre cuite dans l APK a la forge
+        if (applyBakedConfig()) return;
         setContentView(R.layout.activity_main);
         Button scan = findViewById(R.id.btn_scan);
         scan.setOnClickListener(v -> {
@@ -48,6 +50,19 @@ public class MainActivity extends AppCompatActivity {
     private void handleCode(String content) {
         if (!applyCode(content)) {
             Toast.makeText(this, R.string.bad_code, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Config embarquee dans l APK par la forge (assets/safedesk.json). */
+    private boolean applyBakedConfig() {
+        try (java.io.InputStream in = getAssets().open("safedesk.json")) {
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+            return applyJson(bo.toString("UTF-8"));
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -69,6 +84,15 @@ public class MainActivity extends AppCompatActivity {
                     Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
                 json = new String(raw, StandardCharsets.UTF_8);
             }
+            return applyJson(json);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Applique une configuration JSON brute. Vrai si reussie. */
+    private boolean applyJson(String json) {
+        try {
             JSONObject o = new JSONObject(json);
             String url = o.getString("url");
             String fp = o.optString("fp", "")
