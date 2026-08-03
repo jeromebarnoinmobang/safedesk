@@ -1,0 +1,5 @@
+# Conteneur sans GPU : la rasterisation GPU fait rendre des fenetres BLANCHES
+# (le renderer retombe en --disable-gpu-compositing et n'affiche plus rien).
+# On retire le flag pose par /etc/chromium.d/default-flags et on force le rendu logiciel.
+CHROMIUM_FLAGS=$(echo "$CHROMIUM_FLAGS" | sed 's/--enable-gpu-rasterization//')
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-gpu --disable-gpu-compositing"
