@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=QR telephone
+GenericName=Connecter un telephone
+Comment=Affiche les QR codes pour installer et connecter l application SafeDesk
+Exec=safedesk-qr
+Icon=smartphone
+Categories=Utility;
+Terminal=false

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Affiche les QR codes SafeDesk (double-clic depuis le bureau).
+# Tout vient des variables d environnement du deploiement — rien en dur :
+#   SAFEDESK_URL (ou DESKTOP_DOMAIN) : adresse du bureau
+#   CUSTOM_USER / PASSWORD           : identifiants (deja dans le conteneur)
+#   SAFEDESK_NAME                    : nom affiche (defaut SafeDesk)
+#   SAFEDESK_APP_URL                 : lien APK (optionnel -> QR d installation)
+set -euo pipefail
+export DISPLAY="${DISPLAY:-:1}"
+
+err() { command -v kdialog >/dev/null && kdialog --error "$1" || echo "$1" >&2; exit 1; }
+command -v qrencode >/dev/null || err "qrencode absent de cette image"
+
+NAME="${SAFEDESK_NAME:-SafeDesk}"
+URL="${SAFEDESK_URL:-}"
+[ -z "$URL" ] && [ -n "${DESKTOP_DOMAIN:-}" ] && URL="https://$DESKTOP_DOMAIN"
+[ -n "$URL" ] && [ -n "${CUSTOM_USER:-}" ] && [ -n "${PASSWORD:-}" ] \
+  || err "Il manque SAFEDESK_URL (ou DESKTOP_DOMAIN) / CUSTOM_USER / PASSWORD"
+
+OUT="$HOME/.cache/safedesk-qr"; mkdir -p "$OUT"; chmod 700 "$OUT"
+
+JSON=$(printf '{"v":1,"name":"%s","url":"%s","user":"%s","pass":"%s"}' "$NAME" "$URL" "$CUSTOM_USER" "$PASSWORD")
+DATA=$(printf %s "$JSON" | base64 -w0 | tr "+/" "-_" | tr -d "=")
+qrencode -s 9 -m 2 -o "$OUT/connect.png" "safedesk://connect?data=$DATA"
+
+INSTALL_CARD=""
+if [ -n "${SAFEDESK_APP_URL:-}" ]; then
+  qrencode -s 9 -m 2 -o "$OUT/install.png" "$SAFEDESK_APP_URL"
+  INSTALL_CARD='<div class="card"><h2>1 · Installer l application</h2><img src="install.png" alt="QR installation"><p>Scanner avec l appareil photo du telephone,<br>puis installer le fichier telecharge.</p></div>'
+fi
+
+cat > "$OUT/index.html" <<HTML
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>$NAME — telephone</title>
+<style>
+body{background:#0f1115;color:#e8ecf3;font-family:sans-serif;display:flex;flex-direction:column;
+     align-items:center;padding:28px;margin:0}
+h1{font-size:26px;margin:0 0 6px} .sub{color:#8b94a7;margin-bottom:26px}
+.row{display:flex;gap:26px;flex-wrap:wrap;justify-content:center}
+.card{background:#1a1f29;border:1px solid #2a3140;border-radius:20px;padding:22px;text-align:center;max-width:360px}
+.card h2{font-size:17px;margin:0 0 14px;color:#2dd4bf}
+.card img{background:#fff;padding:12px;border-radius:12px;max-width:280px;width:100%}
+.card p{color:#8b94a7;font-size:13px;line-height:1.5}
+.warn{margin-top:22px;color:#eab308;font-size:13px;max-width:640px;text-align:center}
+</style></head><body>
+<h1>$NAME sur ton telephone</h1><div class="sub">Vise l ecran avec le telephone</div>
+<div class="row">
+$INSTALL_CARD
+<div class="card"><h2>2 · Se connecter</h2><img src="connect.png" alt="QR connexion">
+<p>Ouvrir l application SafeDesk,<br>« Scanner mon code », viser ce QR.</p></div>
+</div>
+<div class="warn">Le QR « Se connecter » contient les identifiants de CET espace :
+ne le montrer qu a la personne concernee.</div>
+</body></html>
+HTML
+
+exec xdg-open "$OUT/index.html"

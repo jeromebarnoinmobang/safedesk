@@ -1,0 +1,13 @@
+#!/usr/bin/with-contenv bash
+# Pose les icones SafeDesk sur le bureau de l utilisateur (une fois, idempotent).
+mkdir -p /config/Desktop
+for name in safedesk-qr; do
+  src="/usr/share/applications/$name.desktop"
+  dst="/config/Desktop/$name.desktop"
+  if [ -f "$src" ] && [ ! -f "$dst" ]; then
+    cp "$src" "$dst"
+    chmod +x "$dst"
+    chown abc:abc "$dst"
+  fi
+done
+sleep infinity

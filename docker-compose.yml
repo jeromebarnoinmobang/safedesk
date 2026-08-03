@@ -26,6 +26,10 @@ services:
       - CUSTOM_USER=${DESKTOP_USER:-user}
       - PASSWORD=${DESKTOP_PASSWORD:?definis DESKTOP_PASSWORD dans .env}
       - SAFEDESK_FORGE_REMOTE=${SAFEDESK_FORGE_REMOTE:-}
+      - SAFEDESK_NAME=${SAFEDESK_NAME:-SafeDesk}
+      - SAFEDESK_URL=${SAFEDESK_URL:-}
+      - DESKTOP_DOMAIN=${DESKTOP_DOMAIN:-}
+      - SAFEDESK_APP_URL=${SAFEDESK_APP_URL:-}
     volumes:
       - config:/config
       # Sans GPU, la rasterisation GPU rend des fenetres blanches -> rendu logiciel.

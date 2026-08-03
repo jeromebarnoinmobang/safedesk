@@ -106,6 +106,15 @@ RUN set -eux; \
 COPY files/usr/local/bin/safedesk-forge /usr/local/bin/safedesk-forge
 COPY files/usr/share/applications/safedesk-forge.desktop /usr/share/applications/safedesk-forge.desktop
 RUN chmod +x /usr/local/bin/safedesk-forge
+
+# QR d onboarding affiches depuis le bureau (icone "QR telephone")
+RUN set -eux; apt-get update; \
+    apt-get install -y --no-install-recommends qrencode; \
+    rm -rf /var/lib/apt/lists/*
+COPY files/usr/local/bin/safedesk-qr /usr/local/bin/safedesk-qr
+COPY files/usr/share/applications/safedesk-qr.desktop /usr/share/applications/safedesk-qr.desktop
+COPY files/custom-services.d/desktop-shortcuts /custom-services.d/desktop-shortcuts
+RUN chmod +x /usr/local/bin/safedesk-qr
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
 RUN set -eux; \
