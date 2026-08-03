@@ -56,3 +56,22 @@ Voir `docker-compose.vps.yml`.
 3. [ ] **Assistant voix** (STT/TTS) branché sur le pont.
 4. [ ] **Surface adaptée + garde-fous** (profils, anti-arnaque, kiosk).
 5. [ ] **Sync du home** local ↔ VPS.
+
+
+## Home sync (Syncthing via tailnet)
+
+Chaque hote lance un sidecar Syncthing (`home-sync`) qui monte le volume `/config`
+du bureau sur `/sync/home` et le replique. Dossier partage `desktop-home` (sendreceive),
+`.stignore` pour les fichiers volatils (cache, sockets, locks, X auth, caches navigateur).
+
+**Transport : tailnet headscale, direct** (le port P2P public 22000 est bloque en sortie
+par le reseau local). Cote local, l'adresse du device VPS = `tcp://100.64.0.1:22000`.
+
+Piege : l'image officielle `syncthing/syncthing` tourne en **UID 1000** et n'utilise PAS
+`PUID/PGID` -> le volume de config Syncthing doit etre `chown 1000:1000`, sinon crash
+(`permission denied` sur cert.pem).
+
+## Modele d'usage
+
+- Un seul bureau actif a la fois (local **ou** VPS) -> converge au switch (~10 s).
+- Synchronise = le HOME (`/config`). Pas synchronises = paquets systeme (apt) ni volatils.

@@ -3,3 +3,7 @@
 
 # Volumes / données éventuelles montées en bind
 /data/
+
+# Logs de deploiement
+*.log
+deploy-local.*
