@@ -10,6 +10,7 @@ services:
       args:
         INSTALL_CHROME: ${INSTALL_CHROME:-false}
         INSTALL_CLAUDE: ${INSTALL_CLAUDE:-false}
+        INSTALL_SUNSHINE: ${INSTALL_SUNSHINE:-false}
     image: mobang/desktop:kde
     container_name: mobang-desktop
     # Hostname FIXE : sans lui, chaque recreation change le nom d hote et les navigateurs
