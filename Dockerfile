@@ -10,6 +10,7 @@ FROM lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b955
 
 ARG INSTALL_CHROME=false
 ARG INSTALL_CLAUDE=false
+ARG INSTALL_SUNSHINE=false
 
 # --- Outils de travail (libres) : Node, git, GitHub CLI, VS Code ---
 # NB : jamais de commentaire inline dans un RUN multi-lignes — Docker fusionne les lignes
@@ -63,6 +64,21 @@ RUN set -eux; \
       rm -rf /var/lib/apt/lists/*; \
     fi
 
+
+# --- OPTIONNEL : Sunshine (GPL) — recepteur du client Moonlight (acces telephone/tablette) ---
+# Capture la MEME session que le navigateur (DISPLAY :1). A n exposer que sur un reseau
+# prive (VPN / tailnet) : voir docker-compose.phone.yml.
+RUN set -eux; \
+    if [ "$INSTALL_SUNSHINE" = "true" ]; then \
+      apt-get update; \
+      curl -fsSLo /tmp/sunshine.deb \
+        https://github.com/LizardByte/Sunshine/releases/download/v2026.516.143833/sunshine-debian-trixie-amd64.deb; \
+      apt-get install -y --no-install-recommends /tmp/sunshine.deb; \
+      rm -f /tmp/sunshine.deb; rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Service s6 : demarre Sunshine quand la session graphique est prete (inerte si non installe)
+COPY files/custom-services.d/sunshine /custom-services.d/sunshine
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
 RUN set -eux; \

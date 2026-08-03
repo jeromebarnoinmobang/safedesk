@@ -134,3 +134,22 @@ fourni dans l image pour ceux qui veulent cette synchronisation.
 
 [AGPL-3.0](LICENSE). Si vous proposez ce bureau comme service en ligne, vous devez publier
 vos modifications.
+
+## Acces telephone : client natif Moonlight
+
+Le bureau peut etre utilise depuis un telephone avec [Moonlight](https://moonlight-stream.org)
+(Android/iOS), bien plus agreable au tactile qu un navigateur. Cote serveur, l image embarque
+[Sunshine](https://github.com/LizardByte/Sunshine) (optionnel, `INSTALL_SUNSHINE=true`), qui
+streame **la meme session** que le navigateur.
+
+```bash
+INSTALL_SUNSHINE=true SUNSHINE_BIND_IP=<ip-privee> \
+docker compose -f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.phone.yml up -d --build
+```
+
+Appairage : dans Moonlight, ajouter l hote (l IP privee) -> un PIN s affiche -> le saisir sur
+`https://<ip-privee>:47990` (identifiants crees avec `sunshine --creds`).
+
+**Securite** : ne publiez ces ports que sur une adresse privee (VPN/tailnet). Jamais `0.0.0.0`
+(Docker contourne UFW). L etat de Sunshine (`.config/sunshine`) doit etre EXCLU de la
+synchronisation du home : chaque hote garde sa propre identite d appairage.

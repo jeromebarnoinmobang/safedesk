@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bash
+# Sunshine (recepteur Moonlight) — capture la session existante :1.
+# Inerte si l image a ete construite sans INSTALL_SUNSHINE=true.
+if ! command -v sunshine >/dev/null 2>&1; then
+  sleep infinity
+fi
+until [ -S /tmp/.X11-unix/X1 ]; do sleep 2; done
+export HOME=/config
+export DISPLAY=:1
+exec s6-setuidgid abc sunshine

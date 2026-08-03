@@ -1,0 +1,16 @@
+# Acces telephone (client natif Moonlight) : publie les ports Sunshine.
+# Usage : ... -f docker-compose.phone.yml up -d   avec SUNSHINE_BIND_IP definie.
+#
+# SUNSHINE_BIND_IP doit etre une adresse PRIVEE (VPN / tailnet, ex: 100.64.0.1).
+# JAMAIS 0.0.0.0 : Docker contourne le pare-feu UFW, ce serait expose a Internet.
+services:
+  desktop:
+    ports:
+      - "${SUNSHINE_BIND_IP:?definis SUNSHINE_BIND_IP (IP privee VPN/tailnet)}:47984:47984"
+      - "${SUNSHINE_BIND_IP:?}:47989:47989"
+      - "${SUNSHINE_BIND_IP:?}:47990:47990"
+      - "${SUNSHINE_BIND_IP:?}:48010:48010"
+      - "${SUNSHINE_BIND_IP:?}:47998:47998/udp"
+      - "${SUNSHINE_BIND_IP:?}:47999:47999/udp"
+      - "${SUNSHINE_BIND_IP:?}:48000:48000/udp"
+      - "${SUNSHINE_BIND_IP:?}:48002:48002/udp"
