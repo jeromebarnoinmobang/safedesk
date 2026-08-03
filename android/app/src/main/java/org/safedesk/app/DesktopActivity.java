@@ -113,7 +113,7 @@ public class DesktopActivity extends AppCompatActivity {
         web.loadUrl(Config.url(this));
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override public void handleOnBackPressed() { confirmQuit(); }
+            @Override public void handleOnBackPressed() { finish(); }  // retour a l accueil a tuiles
         });
     }
 

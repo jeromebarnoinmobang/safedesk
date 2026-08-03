@@ -116,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openDesktop() {
-        startActivity(new Intent(this, DesktopActivity.class));
+        startActivity(new Intent(this, HomeActivity.class));
         finish();
     }
 }

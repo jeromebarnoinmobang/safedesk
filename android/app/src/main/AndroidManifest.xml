@@ -31,6 +31,9 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".HomeActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
+
         <activity
             android:name=".DesktopActivity"
             android:exported="false"

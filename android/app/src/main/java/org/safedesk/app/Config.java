@@ -26,6 +26,7 @@ final class Config {
     static String url(Context c)  { return p(c).getString("url", ""); }
     static String user(Context c) { return p(c).getString("user", ""); }
     static String pass(Context c) { return p(c).getString("pass", ""); }
+    static String name(Context c) { return p(c).getString("name", "SafeDesk"); }
     /** Empreinte SHA-256 (hex, sans ':') d un certificat auto-signe epingle. Vide sinon. */
     static String fp(Context c)   { return p(c).getString("fp", ""); }
 

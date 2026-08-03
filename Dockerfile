@@ -115,6 +115,14 @@ COPY files/usr/local/bin/safedesk-qr /usr/local/bin/safedesk-qr
 COPY files/usr/share/applications/safedesk-qr.desktop /usr/share/applications/safedesk-qr.desktop
 COPY files/custom-services.d/desktop-shortcuts /custom-services.d/desktop-shortcuts
 RUN chmod +x /usr/local/bin/safedesk-qr
+
+# Lanceur d applications (tuiles de l accueil telephone) : localhost:3010,
+# expose via nginx sous /safedesk/ -> herite de l auth basique du serveur.
+COPY files/usr/local/bin/safedesk-launcher /usr/local/bin/safedesk-launcher
+COPY files/custom-services.d/safedesk-launcher /custom-services.d/safedesk-launcher
+RUN chmod +x /usr/local/bin/safedesk-launcher \
+ && sed -i "s#^  auth_basic_user_file     /etc/nginx/.htpasswd;#&\n  location /safedesk/ {\n    proxy_pass http://127.0.0.1:3010/;\n  }#" \
+      /etc/nginx/sites-available/default
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
 RUN set -eux; \

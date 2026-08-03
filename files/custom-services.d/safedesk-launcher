@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv bash
+# Lanceur d applications SafeDesk (tuiles de l accueil mobile).
+exec s6-setuidgid abc python3 /usr/local/bin/safedesk-launcher
