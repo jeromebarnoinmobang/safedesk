@@ -11,6 +11,7 @@ services:
         INSTALL_CHROME: ${INSTALL_CHROME:-false}
         INSTALL_CLAUDE: ${INSTALL_CLAUDE:-false}
         INSTALL_SUNSHINE: ${INSTALL_SUNSHINE:-false}
+        INSTALL_FORGE: ${INSTALL_FORGE:-false}
     image: mobang/desktop:kde
     container_name: mobang-desktop
     # Hostname FIXE : sans lui, chaque recreation change le nom d hote et les navigateurs
@@ -24,6 +25,7 @@ services:
       - TZ=${TZ:-Europe/Paris}
       - CUSTOM_USER=${DESKTOP_USER:-user}
       - PASSWORD=${DESKTOP_PASSWORD:?definis DESKTOP_PASSWORD dans .env}
+      - SAFEDESK_FORGE_REMOTE=${SAFEDESK_FORGE_REMOTE:-}
     volumes:
       - config:/config
       # Sans GPU, la rasterisation GPU rend des fenetres blanches -> rendu logiciel.

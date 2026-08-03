@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Forge un APK DEPUIS le bureau SafeDesk. Tout est parametrable, rien en dur.
+#
+#   safedesk-forge [options] [depot]
+#     depot : chemin d un projet gradle, ou nom court -> ~/Projects/<nom>
+#             (clone automatique depuis $SAFEDESK_FORGE_REMOTE ou l origine git)
+#   Options :
+#     -t <tache>   tache gradle            (defaut: assembleRelease)
+#     -s <sousdir> sous-dossier du projet  (defaut: android s il existe)
+#     -o <sortie>  dossier de sortie       (defaut: ~/Forge)
+#     -n <nom>     nom du fichier APK      (defaut: <depot>-<date>.apk)
+#
+# La cle de signature vit dans ~/.config/safedesk/keys : elle est STABLE et suit
+# le home synchronise (meme cle sur le bureau local et le bureau streame).
+set -euo pipefail
+
+TASK=assembleRelease; SUBDIR=""; OUTDIR="$HOME/Forge"; NAME=""
+while getopts "t:s:o:n:h" opt; do
+  case $opt in
+    t) TASK=$OPTARG ;;
+    s) SUBDIR=$OPTARG ;;
+    o) OUTDIR=$OPTARG ;;
+    n) NAME=$OPTARG ;;
+    h) grep "^#" "$0" | sed "s/^# \{0,1\}//"; exit 0 ;;
+    *) exit 2 ;;
+  esac
+done
+shift $((OPTIND-1))
+PROJ="${1:-safedesk}"
+
+command -v gradle >/dev/null || { echo "forge absente de cette image (INSTALL_FORGE=true requis)"; exit 1; }
+
+# Resolution du projet
+if [ -d "$PROJ" ]; then
+  DIR=$(cd "$PROJ" && pwd)
+else
+  DIR="$HOME/Projects/$PROJ"
+  if [ ! -d "$DIR" ]; then
+    REMOTE="${SAFEDESK_FORGE_REMOTE:-}"
+    [ -n "$REMOTE" ] || { echo "projet '$PROJ' introuvable et SAFEDESK_FORGE_REMOTE non defini"; exit 1; }
+    echo "[forge] clone de $REMOTE -> $DIR"
+    mkdir -p "$HOME/Projects"
+    git clone --depth 1 "$REMOTE" "$DIR"
+  fi
+fi
+SRC="$DIR"
+if [ -z "$SUBDIR" ] && [ -d "$DIR/android" ]; then SUBDIR=android; fi
+[ -n "$SUBDIR" ] && SRC="$DIR/$SUBDIR"
+[ -f "$SRC/settings.gradle" ] || [ -f "$SRC/settings.gradle.kts" ] || { echo "pas de projet gradle dans $SRC"; exit 1; }
+
+echo "[forge] $TASK sur $SRC"
+( cd "$SRC" && gradle --console=plain -q "$TASK" )
+
+# Signature (cle stable dans le home synchronise)
+KEYDIR="$HOME/.config/safedesk/keys"; KS="$KEYDIR/forge.jks"
+mkdir -p "$KEYDIR"; chmod 700 "$KEYDIR"
+if [ ! -f "$KS" ]; then
+  PASS=$(head -c 24 /dev/urandom | base64 | tr -dc "A-Za-z0-9" | cut -c1-24)
+  keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" \
+    -alias safedesk -dname CN=SafeDesk -keyalg RSA -keysize 2048 -validity 3650
+  printf "%s" "$PASS" > "$KEYDIR/.pass"; chmod 600 "$KEYDIR/.pass"
+  echo "[forge] cle de signature creee (elle suivra ton home)"
+fi
+PASS=$(cat "$KEYDIR/.pass")
+BT=$(ls -d "${ANDROID_HOME:-/opt/android-sdk}"/build-tools/* | sort -V | tail -1)
+APK=$(find "$SRC" -path "*outputs/apk*" -name "*.apk" -newer "$KS" 2>/dev/null | head -1)
+[ -n "$APK" ] || APK=$(find "$SRC" -path "*outputs/apk*" -name "*.apk" | head -1)
+[ -n "$APK" ] || { echo "aucun APK produit"; exit 1; }
+
+mkdir -p "$OUTDIR"
+[ -n "$NAME" ] || NAME="$(basename "$PROJ")-$(date +%Y%m%d-%H%M).apk"
+"$BT/zipalign" -f -p 4 "$APK" /tmp/forge-aligned.apk
+"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --ks-key-alias safedesk \
+  --key-pass "pass:$PASS" --out "$OUTDIR/$NAME" /tmp/forge-aligned.apk
+rm -f /tmp/forge-aligned.apk
+echo "[forge] PRET -> $OUTDIR/$NAME"

@@ -1,0 +1,17 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_launcher
+id btn_scan
+layout activity_main
+string app_name
+string bad_code
+string btn_scan
+string quit_forget
+string quit_no
+string quit_title
+string quit_yes
+string scan_prompt
+string ssl_refused
+string welcome_sub
+string welcome_title
+style Theme.SafeDesk

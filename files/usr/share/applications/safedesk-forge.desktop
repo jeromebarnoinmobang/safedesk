@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Forger l APK SafeDesk
+Comment=Construit et signe l application Android depuis ce bureau
+Exec=konsole --hold -e safedesk-forge
+Icon=applications-development
+Categories=Development;
+Terminal=false

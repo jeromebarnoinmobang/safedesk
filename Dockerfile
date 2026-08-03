@@ -11,6 +11,7 @@ FROM lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b955
 ARG INSTALL_CHROME=false
 ARG INSTALL_CLAUDE=false
 ARG INSTALL_SUNSHINE=false
+ARG INSTALL_FORGE=false
 
 # --- Outils de travail (libres) : Node, git, GitHub CLI, VS Code ---
 # NB : jamais de commentaire inline dans un RUN multi-lignes — Docker fusionne les lignes
@@ -79,6 +80,31 @@ RUN set -eux; \
 
 # Service s6 : demarre Sunshine quand la session graphique est prete (inerte si non installe)
 COPY files/custom-services.d/sunshine /custom-services.d/sunshine
+
+# --- OPTIONNEL : forge APK in-desktop (JDK + SDK Android + gradle) ---
+# Permet de construire et signer les applications SafeDesk DEPUIS le bureau.
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/gradle/bin
+RUN set -eux; \
+    if [ "$INSTALL_FORGE" = "true" ]; then \
+      apt-get update; \
+      apt-get install -y --no-install-recommends openjdk-21-jdk-headless unzip; \
+      curl -fsSLo /tmp/ct.zip "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"; \
+      mkdir -p "$ANDROID_HOME/cmdline-tools"; \
+      unzip -q /tmp/ct.zip -d "$ANDROID_HOME/cmdline-tools"; \
+      mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"; \
+      rm /tmp/ct.zip; \
+      yes | sdkmanager --licenses >/dev/null; \
+      sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"; \
+      curl -fsSLo /tmp/gradle.zip "https://services.gradle.org/distributions/gradle-8.9-bin.zip"; \
+      unzip -q /tmp/gradle.zip -d /opt; mv /opt/gradle-8.9 /opt/gradle; rm /tmp/gradle.zip; \
+      chmod -R a+rX "$ANDROID_HOME" /opt/gradle; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+
+COPY files/usr/local/bin/safedesk-forge /usr/local/bin/safedesk-forge
+COPY files/usr/share/applications/safedesk-forge.desktop /usr/share/applications/safedesk-forge.desktop
+RUN chmod +x /usr/local/bin/safedesk-forge
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
 RUN set -eux; \
