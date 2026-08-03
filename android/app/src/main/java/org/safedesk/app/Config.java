@@ -27,6 +27,12 @@ final class Config {
     static String user(Context c) { return p(c).getString("user", ""); }
     static String pass(Context c) { return p(c).getString("pass", ""); }
     static String name(Context c) { return p(c).getString("name", "SafeDesk"); }
+
+    // Profil d affichage choisi a l installation : "senior" (Confort) ou "standard".
+    static boolean hasProfile(Context c) { return p(c).contains("profile"); }
+    static String profile(Context c) { return p(c).getString("profile", "standard"); }
+    static boolean isSenior(Context c) { return "senior".equals(profile(c)); }
+    static void setProfile(Context c, String v) { p(c).edit().putString("profile", v).apply(); }
     /** Empreinte SHA-256 (hex, sans ':') d un certificat auto-signe epingle. Vide sinon. */
     static String fp(Context c)   { return p(c).getString("fp", ""); }
 

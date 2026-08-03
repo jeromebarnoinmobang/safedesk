@@ -15,6 +15,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONObject;
@@ -28,11 +29,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-/** Accueil TELEPHONE : grandes tuiles. Ne peut jamais paraitre vide. */
+/** Accueil TELEPHONE, adaptatif selon le profil (Confort senior / Standard). */
 public class HomeActivity extends AppCompatActivity {
 
     private GridLayout grid;
     private TextView status;
+    private boolean senior;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
     static class Tile { String id, label, icon; Tile(String i,String l,String c){id=i;label=l;icon=c;} }
@@ -40,29 +42,31 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        senior = Config.isSenior(this);
+
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.parseColor("#0F1115"));
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(dp(20), dp(28), dp(20), dp(20));
+        col.setPadding(dp(senior ? 16 : 20), dp(28), dp(senior ? 16 : 20), dp(20));
         scroll.addView(col);
 
         TextView title = new TextView(this);
         title.setText(Config.name(this));
-        title.setTextColor(Color.parseColor("#E8ECF3"));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, senior ? 30 : 26);
         title.setGravity(Gravity.CENTER);
         col.addView(title);
 
         status = new TextView(this);
         status.setTextColor(Color.parseColor("#8B94A7"));
-        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, senior ? 18 : 14);
         status.setGravity(Gravity.CENTER);
         status.setPadding(0, dp(10), 0, 0);
         col.addView(status);
 
         grid = new GridLayout(this);
-        grid.setColumnCount(2);
+        grid.setColumnCount(senior ? 1 : 2);   // Confort = une seule colonne
         grid.setUseDefaultMargins(true);
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -70,15 +74,14 @@ public class HomeActivity extends AppCompatActivity {
         col.addView(grid, gp);
 
         setContentView(scroll);
-        render(new ArrayList<>());   // affiche au moins "Bureau complet"
+        render(new ArrayList<>());
         load();
     }
 
     private void load() {
-        status.setText("Chargement de tes applications\u2026");
+        status.setText("Chargement\u2026");
         Executors.newSingleThreadExecutor().execute(() -> {
             final List<Tile> tiles = new ArrayList<>();
-            String err = null;
             try {
                 JSONObject o = new JSONObject(httpGet(Config.url(this) + "/safedesk/apps"));
                 for (Iterator<String> it = o.keys(); it.hasNext(); ) {
@@ -86,16 +89,12 @@ public class HomeActivity extends AppCompatActivity {
                     JSONObject a = o.getJSONObject(k);
                     tiles.add(new Tile(k, a.optString("label", k), a.optString("icon", "\u2699\uFE0F")));
                 }
-            } catch (Exception e) {
-                err = e.getMessage();
-            }
-            final String fErr = err;
+            } catch (Exception ignored) {}
             ui.post(() -> {
                 render(tiles);
-                status.setText(tiles.isEmpty()
-                    ? "Connexion impossible \u2014 touche pour reessayer"
-                    : "");
-                status.setOnClickListener(tiles.isEmpty() ? v -> load() : null);
+                boolean empty = tiles.isEmpty();
+                status.setText(empty ? "Connexion impossible \u2014 touche pour reessayer" : "");
+                status.setOnClickListener(empty ? v -> load() : null);
             });
         });
     }
@@ -103,14 +102,24 @@ public class HomeActivity extends AppCompatActivity {
     private void render(List<Tile> tiles) {
         grid.removeAllViews();
         for (Tile t : tiles) {
-            TextView tv = tileView(t);
+            TextView tv = tileView(t.icon, t.label, "#1A1F29", "#E8ECF3");
             tv.setOnClickListener(v -> runApp(t));
             grid.addView(tv);
         }
-        Tile desk = new Tile("__desktop__", "Bureau complet", "\uD83D\uDDA5\uFE0F");
-        TextView dv = tileView(desk);
+        TextView dv = tileView("\uD83D\uDDA5\uFE0F", "Bureau complet", "#1A1F29", "#E8ECF3");
         dv.setOnClickListener(v -> startActivity(new Intent(this, DesktopActivity.class)));
         grid.addView(dv);
+
+        if (senior) {   // aide toujours accessible (amorce du "tier humain")
+            TextView help = tileView("\u2753", "Besoin d'aide", "#14B8A6", "#0F1115");
+            help.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setTitle("Besoin d'aide ?")
+                    .setMessage("Touche une grande case pour ouvrir ton application.\n\n"
+                            + "Un proche ou un assistant pourra bientot t'aider a distance depuis ici.")
+                    .setPositiveButton("J'ai compris", null)
+                    .show());
+            grid.addView(help);
+        }
     }
 
     private void runApp(Tile t) {
@@ -121,17 +130,20 @@ public class HomeActivity extends AppCompatActivity {
         });
     }
 
-    private TextView tileView(Tile t) {
+    private TextView tileView(String icon, String label, String bg, String fg) {
         TextView tv = new TextView(this);
-        tv.setText(t.icon + "\n" + t.label);
+        tv.setText(icon + "\n" + label);
         tv.setGravity(Gravity.CENTER);
-        tv.setTextColor(Color.parseColor("#E8ECF3"));
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        tv.setBackgroundColor(Color.parseColor("#1A1F29"));
+        tv.setTextColor(Color.parseColor(fg));
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, senior ? 26 : 17);
+        tv.setLineSpacing(dp(senior ? 8 : 2), 1f);
+        tv.setBackgroundColor(Color.parseColor(bg));
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-        lp.width = 0; lp.height = dp(130);
+        lp.width = 0;
+        lp.height = dp(senior ? 150 : 130);
         lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
-        lp.setMargins(dp(8), dp(8), dp(8), dp(8));
+        int m = dp(senior ? 10 : 8);
+        lp.setMargins(m, m, m, m);
         tv.setLayoutParams(lp);
         return tv;
     }
