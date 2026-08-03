@@ -88,6 +88,7 @@ ENV PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platfo
 RUN set -eux; \
     if [ "$INSTALL_FORGE" = "true" ]; then \
       apt-get update; \
+      mkdir -p /usr/share/man/man1; \
       apt-get install -y --no-install-recommends openjdk-21-jdk-headless unzip; \
       curl -fsSLo /tmp/ct.zip "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"; \
       mkdir -p "$ANDROID_HOME/cmdline-tools"; \
