@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "org.safedesk.app-mergeReleaseResources-22:/values/values.xml",
+            "outputFile": "org.safedesk.app-mergeReleaseResources-23:/values/values.xml",
             "map": [
                 {
                     "source": "/src/app/src/main/res/values/strings.xml",

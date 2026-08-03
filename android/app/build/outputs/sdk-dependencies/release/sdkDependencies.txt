@@ -566,6 +566,18 @@ library {
 }
 library {
   maven_library {
+    groupId: "androidx.webkit"
+    artifactId: "webkit"
+    version: "1.11.0"
+  }
+  digests {
+    sha256: "H\001\257X\257\355\177\177\210\365\240!m?\214\257\260\004sG^\272D\227NH\371W\027\235\321\020"
+  }
+  repo_index {
+  }
+}
+library {
+  maven_library {
     groupId: "com.journeyapps"
     artifactId: "zxing-android-embedded"
     version: "4.3.0"
@@ -926,7 +938,12 @@ library_dependencies {
 }
 library_dependencies {
   library_index: 47
-  library_dep_index: 48
+  library_dep_index: 8
+  library_dep_index: 11
+}
+library_dependencies {
+  library_index: 48
+  library_dep_index: 49
 }
 module_dependencies {
   module_name: "base"
@@ -934,6 +951,7 @@ module_dependencies {
   dependency_index: 6
   dependency_index: 7
   dependency_index: 47
+  dependency_index: 48
 }
 repositories {
   maven_repo {

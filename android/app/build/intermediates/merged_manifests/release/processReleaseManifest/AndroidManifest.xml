@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.safedesk.app"
-    android:versionCode="1"
-    android:versionName="0.1.0" >
+    android:versionCode="4"
+    android:versionName="0.4.1" >
 
     <uses-sdk
         android:minSdkVersion="26"
@@ -55,7 +55,26 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+                 QR unique : le meme lien https installe (navigateur) puis configure (app).
+                 L hote est fourni au build par SAFEDESK_LINK_HOST (forge).
+            -->
+            <intent-filter android:autoVerify="true" >
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="safedesk.invalid"
+                    android:pathPrefix="/sd"
+                    android:scheme="https" />
+            </intent-filter>
         </activity>
+        <activity
+            android:name="org.safedesk.app.HomeActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:exported="false" />
         <activity
             android:name="org.safedesk.app.DesktopActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"

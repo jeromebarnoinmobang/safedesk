@@ -52,6 +52,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.webkit:webkit:1.11.0@aar"
+      jars="/root/.gradle/caches/8.9/transforms/d108170d553ec26725d2fe7278ec7d26/transformed/webkit-1.11.0/jars/classes.jar"
+      resolved="androidx.webkit:webkit:1.11.0"
+      folder="/root/.gradle/caches/8.9/transforms/d108170d553ec26725d2fe7278ec7d26/transformed/webkit-1.11.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="com.journeyapps:zxing-android-embedded:4.3.0@aar"
       jars="/root/.gradle/caches/8.9/transforms/9a4e3ab53b680b28c46e9dec90715a82/transformed/zxing-android-embedded-4.3.0/jars/classes.jar"
       resolved="com.journeyapps:zxing-android-embedded:4.3.0"

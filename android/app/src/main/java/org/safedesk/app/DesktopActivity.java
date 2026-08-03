@@ -12,6 +12,10 @@ import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.view.Gravity;
+import android.util.TypedValue;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
@@ -40,7 +44,27 @@ public class DesktopActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         web = new WebView(this);
-        setContentView(web);
+        FrameLayout root = new FrameLayout(this);
+        root.addView(web, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        Button home = new Button(this);
+        home.setText("\u2302");                       // maison
+        home.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        home.setBackgroundColor(0xCC14B8A6);
+        home.setTextColor(0xFF0F1115);
+        int sz = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 52,
+                getResources().getDisplayMetrics());
+        int mg = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 14,
+                getResources().getDisplayMetrics());
+        FrameLayout.LayoutParams hp = new FrameLayout.LayoutParams(sz, sz);
+        hp.gravity = Gravity.BOTTOM | Gravity.START;
+        hp.setMargins(mg, mg, mg, mg);
+        home.setLayoutParams(hp);
+        home.setOnClickListener(v -> finish());       // retour aux tuiles
+        root.addView(home);
+
+        setContentView(root);
 
         // Session a l echelle du TELEPHONE : on neutralise le devicePixelRatio pour
         // que le stream demande une resolution logique (~400pt de large) -> interface

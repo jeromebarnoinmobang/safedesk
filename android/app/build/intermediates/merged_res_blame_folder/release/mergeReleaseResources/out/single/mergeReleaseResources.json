@@ -1,10 +1,10 @@
 [
     {
-        "merged": "org.safedesk.app-release-24:/layout_activity_main.xml.flat",
-        "source": "org.safedesk.app-main-25:/layout/activity_main.xml"
+        "merged": "org.safedesk.app-release-25:/drawable_ic_launcher.xml.flat",
+        "source": "org.safedesk.app-main-26:/drawable/ic_launcher.xml"
     },
     {
-        "merged": "org.safedesk.app-release-24:/drawable_ic_launcher.xml.flat",
-        "source": "org.safedesk.app-main-25:/drawable/ic_launcher.xml"
+        "merged": "org.safedesk.app-release-25:/layout_activity_main.xml.flat",
+        "source": "org.safedesk.app-main-26:/layout/activity_main.xml"
     }
 ]
