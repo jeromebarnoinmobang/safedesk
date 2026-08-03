@@ -14,7 +14,7 @@ import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Locale;
 
-/** Fait parler l'app avec la voix du SERVEUR (/safedesk/tts). Repli : TTS systeme. */
+/** Fait parler l'app avec la voix du SERVEUR (/safedesk/tts). Repli PARESSEUX : TTS systeme. */
 class Speaker {
     interface Done { void onDone(); }
 
@@ -22,13 +22,10 @@ class Speaker {
     private MediaPlayer mp;
     private TextToSpeech fallback;
     private boolean fbReady;
+    private String pendingText;
+    private Done pendingDone;
 
-    Speaker(Context c) {
-        ctx = c;
-        fallback = new TextToSpeech(c, s -> {
-            if (s == TextToSpeech.SUCCESS) { fallback.setLanguage(Locale.FRENCH); fbReady = true; }
-        }, "com.google.android.tts");
-    }
+    Speaker(Context c) { ctx = c; }
 
     void play(String text, Done done) {
         release();
@@ -51,19 +48,30 @@ class Speaker {
         }
     }
 
+    // repli cree seulement si besoin
     private void fb(String text, Done done) {
-        if (fbReady) {
-            fallback.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                public void onStart(String i) {}
-                public void onError(String i) {}
-                public void onDone(String i) {
-                    if (done != null) new Handler(Looper.getMainLooper()).post(done::onDone);
+        if (fbReady) { speakFb(text, done); return; }
+        pendingText = text; pendingDone = done;
+        if (fallback == null) {
+            fallback = new TextToSpeech(ctx, s -> {
+                if (s == TextToSpeech.SUCCESS) {
+                    fallback.setLanguage(Locale.FRENCH);
+                    fbReady = true;
+                    if (pendingText != null) { speakFb(pendingText, pendingDone); pendingText = null; pendingDone = null; }
+                } else if (pendingDone != null) {
+                    new Handler(Looper.getMainLooper()).post(pendingDone::onDone);
                 }
             });
-            fallback.speak(text, TextToSpeech.QUEUE_FLUSH, null, "fb");
-        } else if (done != null) {
-            new Handler(Looper.getMainLooper()).postDelayed(done::onDone, 1200);
         }
+    }
+
+    private void speakFb(String text, Done done) {
+        fallback.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            public void onStart(String i) {}
+            public void onError(String i) { if (done != null) new Handler(Looper.getMainLooper()).post(done::onDone); }
+            public void onDone(String i) { if (done != null) new Handler(Looper.getMainLooper()).post(done::onDone); }
+        });
+        fallback.speak(text, TextToSpeech.QUEUE_FLUSH, null, "fb");
     }
 
     void stop() { release(); }
@@ -72,6 +80,6 @@ class Speaker {
     }
     void shutdown() {
         release();
-        if (fallback != null) { fallback.stop(); fallback.shutdown(); }
+        if (fallback != null) { try { fallback.stop(); fallback.shutdown(); } catch (Exception e) {} }
     }
 }
