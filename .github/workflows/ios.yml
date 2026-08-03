@@ -1,0 +1,56 @@
+name: iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (ex: 0.1.0)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generer le projet
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen
+
+      - name: Construire (sans signature)
+        run: |
+          cd ios
+          xcodebuild -project SafeDesk.xcodeproj -scheme SafeDesk \
+            -configuration Release -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
+      - name: Empaqueter l IPA
+        id: ipa
+        run: |
+          V="${{ github.event.inputs.version }}"; [ -n "$V" ] || V=0.1.0
+          cd ios
+          mkdir Payload
+          cp -r build/Build/Products/Release-iphoneos/SafeDesk.app Payload/
+          zip -qry "../SafeDesk-ios-unsigned-$V.ipa" Payload
+          echo "file=SafeDesk-ios-unsigned-$V.ipa" >> "$GITHUB_OUTPUT"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: safedesk-ios-ipa
+          path: ${{ steps.ipa.outputs.file }}
+
+      - name: Publier la release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-v${{ steps.ipa.outputs.version }}
+          name: "SafeDesk iOS ${{ steps.ipa.outputs.version }} (non signee)"
+          files: ${{ steps.ipa.outputs.file }}
+          body: |
+            IPA NON SIGNEE (Apple exige une signature pour installer).
+            Installation : Sideloadly ou AltStore avec un Apple ID (gratuit, 7 jours,
+            renouvelable) — ou compte Apple Developer pour une distribution durable.

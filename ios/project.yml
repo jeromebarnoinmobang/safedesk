@@ -1,0 +1,24 @@
+# Projet iOS genere par xcodegen (pas de .xcodeproj versionne).
+name: SafeDesk
+options:
+  bundleIdPrefix: org.safedesk
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  SafeDesk:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: SafeDesk
+        NSCameraUsageDescription: "Scanner ton code SafeDesk"
+        UILaunchScreen: {}
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [safedesk]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.safedesk.app.ios
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
