@@ -48,15 +48,9 @@ public class HomeActivity extends AppCompatActivity {
         scroll.setBackgroundColor(Color.parseColor("#0F1115"));
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(dp(senior ? 16 : 20), dp(28), dp(senior ? 16 : 20), dp(20));
+        col.setPadding(dp(senior ? 16 : 20), dp(16), dp(senior ? 16 : 20), dp(20));
         scroll.addView(col);
 
-        TextView title = new TextView(this);
-        title.setText(Config.name(this));
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, senior ? 30 : 26);
-        title.setGravity(Gravity.CENTER);
-        col.addView(title);
 
         status = new TextView(this);
         status.setTextColor(Color.parseColor("#8B94A7"));
