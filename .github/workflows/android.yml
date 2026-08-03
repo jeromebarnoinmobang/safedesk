@@ -6,7 +6,6 @@ on:
       version:
         description: "Version (ex: 0.1.0)"
         required: false
-        default: "0.1.0"
   push:
     tags: ["app-v*"]
 
@@ -32,6 +31,7 @@ jobs:
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           KS="$RUNNER_TEMP/safedesk.jks"
           if [ -n "$KS_B64" ]; then
@@ -48,7 +48,7 @@ jobs:
             echo "KEYSTORE_FILE=$KS"
             echo "KEYSTORE_PASS=$PASS"
             echo "KEY_PASS=$PASS"
-            echo "KEY_ALIAS=safedesk"
+            echo "KEY_ALIAS=${ANDROID_KEY_ALIAS:-safedesk}"
           } >> "$GITHUB_ENV"
 
       - name: Construire l APK
@@ -57,7 +57,9 @@ jobs:
       - name: Renommer
         id: apk
         run: |
-          V="${{ github.event.inputs.version || '0.1.0' }}"
+          V="${{ github.event.inputs.version }}"
+          case "$GITHUB_REF" in refs/tags/app-v*) V="${GITHUB_REF#refs/tags/app-v}" ;; esac
+          [ -n "$V" ] || V=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
           OUT="SafeDesk-$V.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$OUT"
           echo "file=$OUT" >> "$GITHUB_OUTPUT"
