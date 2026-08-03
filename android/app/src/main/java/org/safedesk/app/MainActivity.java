@@ -1,6 +1,7 @@
 package org.safedesk.app;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
 import android.widget.Button;
@@ -15,6 +16,7 @@ import com.journeyapps.barcodescanner.ScanOptions;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 /** Accueil : soit deja configure -> bureau, soit scan du code SafeDesk. */
 public class MainActivity extends AppCompatActivity {
@@ -44,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             String json = content.trim();
             if (json.startsWith("safedesk://")) {
-                android.net.Uri u = android.net.Uri.parse(json);
+                Uri u = Uri.parse(json);
                 String data = u.getQueryParameter("data");
                 if (data == null) throw new IllegalArgumentException("data manquant");
                 byte[] raw = Base64.decode(data,
@@ -53,10 +55,19 @@ public class MainActivity extends AppCompatActivity {
             }
             JSONObject o = new JSONObject(json);
             String url = o.getString("url");
-            if (!url.startsWith("https://"))
-                throw new IllegalArgumentException("https requis");
+            String fp = o.optString("fp", "")
+                .replace(":", "").toLowerCase(Locale.ROOT);
+
+            Uri parsed = Uri.parse(url);
+            String scheme = parsed.getScheme();
+            boolean ok =
+                "https".equals(scheme)
+                || ("http".equals(scheme) && Config.isPrivateHost(parsed.getHost()));
+            if (!ok) throw new IllegalArgumentException(
+                "https requis (http tolere uniquement vers une adresse privee/VPN)");
+
             Config.save(this, url, o.getString("user"), o.getString("pass"),
-                o.optString("name", "SafeDesk"));
+                o.optString("name", getString(R.string.app_name)), fp);
             openDesktop();
         } catch (Exception e) {
             Toast.makeText(this, R.string.bad_code, Toast.LENGTH_LONG).show();

@@ -2,14 +2,18 @@ package org.safedesk.app;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.net.http.SslCertificate;
+import android.net.http.SslError;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.webkit.HttpAuthHandler;
 import android.webkit.PermissionRequest;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
@@ -17,6 +21,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+
+import java.security.MessageDigest;
+import java.util.Locale;
 
 /** Le bureau streame, plein ecran, auth automatique, ecran maintenu allume. */
 public class DesktopActivity extends AppCompatActivity {
@@ -65,6 +72,23 @@ public class DesktopActivity extends AppCompatActivity {
                     handler.cancel();
                 }
             }
+
+            /**
+             * Sans nom de domaine, le serveur presente un certificat auto-signe :
+             * on ne l accepte QUE si son empreinte SHA-256 est exactement celle
+             * epinglee dans le QR. Sinon, refus systematique.
+             */
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                String pinned = Config.fp(DesktopActivity.this);
+                if (!pinned.isEmpty() && pinned.equals(sha256Of(error.getCertificate()))) {
+                    handler.proceed();
+                } else {
+                    handler.cancel();
+                    Toast.makeText(DesktopActivity.this, R.string.ssl_refused,
+                        Toast.LENGTH_LONG).show();
+                }
+            }
         });
 
         hideBars();
@@ -73,6 +97,20 @@ public class DesktopActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { confirmQuit(); }
         });
+    }
+
+    private static String sha256Of(SslCertificate cert) {
+        try {
+            Bundle state = SslCertificate.saveState(cert);
+            byte[] der = state.getByteArray("x509-certificate");
+            if (der == null) return "";
+            byte[] d = MessageDigest.getInstance("SHA-256").digest(der);
+            StringBuilder sb = new StringBuilder(d.length * 2);
+            for (byte b : d) sb.append(String.format(Locale.ROOT, "%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private void hideBars() {
