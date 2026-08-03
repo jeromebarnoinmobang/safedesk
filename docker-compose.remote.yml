@@ -11,6 +11,9 @@
 # N exposez JAMAIS ce service sans HTTPS ni authentification.
 services:
   desktop:
+    volumes:
+      # publication en un clic depuis le bureau : APK + assetlinks -> ./landing
+      - ./landing:/landing
     networks:
       - proxy
     labels:
@@ -19,6 +22,23 @@ services:
       - "traefik.http.routers.safedesk.entrypoints=websecure"
       - "traefik.http.routers.safedesk.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.services.safedesk.loadbalancer.server.port=3000"
+
+  # Page publique du QR unique : /sd (installation) + /.well-known/assetlinks.json
+  # (App Links). AUCUNE donnee sensible : la config voyage dans le #fragment du lien,
+  # qui n est jamais transmis au serveur.
+  landing:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./landing:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.safedesk-landing.rule=Host(``) && (PathPrefix(`/sd`) || Path(`/.well-known/assetlinks.json`))"
+      - "traefik.http.routers.safedesk-landing.entrypoints=websecure"
+      - "traefik.http.routers.safedesk-landing.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.services.safedesk-landing.loadbalancer.server.port=80"
 
 networks:
   proxy:

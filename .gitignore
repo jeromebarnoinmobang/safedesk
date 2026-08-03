@@ -11,3 +11,5 @@ build.log
 build.err.log
 dist/
 builder-build.*
+landing/sd/SafeDesk.apk
+landing/.well-known/

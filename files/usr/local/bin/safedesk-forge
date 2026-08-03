@@ -43,6 +43,16 @@ else
     git clone --depth 1 "$REMOTE" "$DIR"
   fi
 fi
+# garder le projet a jour (best-effort)
+git -C "$DIR" pull --ff-only --quiet 2>/dev/null || true
+
+# QR unique : l hote du lien https est fige dans l APK au moment du build
+LINK_URL="${SAFEDESK_URL:-}"
+[ -z "$LINK_URL" ] && [ -n "${DESKTOP_DOMAIN:-}" ] && LINK_URL="https://$DESKTOP_DOMAIN"
+if [ -n "$LINK_URL" ]; then
+  h="${LINK_URL#*://}"; export SAFEDESK_LINK_HOST="${h%%/*}"
+fi
+
 SRC="$DIR"
 if [ -z "$SUBDIR" ] && [ -d "$DIR/android" ]; then SUBDIR=android; fi
 [ -n "$SUBDIR" ] && SRC="$DIR/$SUBDIR"

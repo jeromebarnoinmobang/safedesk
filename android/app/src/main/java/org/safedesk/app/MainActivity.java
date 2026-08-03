@@ -29,6 +29,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // QR unique : l app a ete ouverte par le lien https (App Link) -> config dans le fragment
+        Uri link = getIntent().getData();
+        if (link != null && applyCode(link.toString())) return;
         if (Config.isConfigured(this)) { openDesktop(); return; }
         setContentView(R.layout.activity_main);
         Button scan = findViewById(R.id.btn_scan);
@@ -43,9 +46,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleCode(String content) {
+        if (!applyCode(content)) {
+            Toast.makeText(this, R.string.bad_code, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Applique un code (safedesk:// ou lien https#fragment). Vrai si reussi. */
+    private boolean applyCode(String content) {
         try {
             String json = content.trim();
-            if (json.startsWith("safedesk://")) {
+            if (json.startsWith("https://")) {
+                String frag = Uri.parse(json).getFragment();
+                if (frag == null) throw new IllegalArgumentException("fragment absent");
+                byte[] raw = Base64.decode(frag,
+                    Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+                json = new String(raw, StandardCharsets.UTF_8);
+            } else if (json.startsWith("safedesk://")) {
                 Uri u = Uri.parse(json);
                 String data = u.getQueryParameter("data");
                 if (data == null) throw new IllegalArgumentException("data manquant");
@@ -69,8 +85,9 @@ public class MainActivity extends AppCompatActivity {
             Config.save(this, url, o.getString("user"), o.getString("pass"),
                 o.optString("name", getString(R.string.app_name)), fp);
             openDesktop();
+            return true;
         } catch (Exception e) {
-            Toast.makeText(this, R.string.bad_code, Toast.LENGTH_LONG).show();
+            return false;
         }
     }
 
