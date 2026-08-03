@@ -9,3 +9,5 @@
 deploy-local.*
 build.log
 build.err.log
+dist/
+builder-build.*
