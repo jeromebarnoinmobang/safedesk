@@ -49,6 +49,9 @@ RUN set -eux; \
       rm -rf /var/lib/apt/lists/*; \
     fi
 
+# --- Audio : sinks "output"/"input" captes par Selkies (sinon PulseAudio demarre en auto_null => pas de son) ---
+RUN printf '\n### SafeDesk : sinks captes par Selkies (pcmflux ecoute output.monitor)\nload-module module-null-sink sink_name=output sink_properties=device.description=output rate=48000 channels=2\nload-module module-null-sink sink_name=input sink_properties=device.description=input rate=44100 channels=2\nset-default-sink output\nset-default-source output.monitor\n' >> /etc/pulse/default.pa
+
 # --- OPTIONNEL : Claude Desktop (proprietaire, beta Linux) ---
 # La cle du depot est verifiee par empreinte : le build ECHOUE si elle ne correspond pas.
 RUN set -eux; \
@@ -61,7 +64,11 @@ RUN set -eux; \
       echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
         > /etc/apt/sources.list.d/claude-desktop.list; \
       apt-get update; \
-      apt-get install -y --no-install-recommends claude-desktop; \
+      apt-get install -y --no-install-recommends claude-desktop desktop-file-utils; \
+      update-desktop-database /usr/share/applications; \
+      rm -f /usr/bin/claude-desktop; \
+      printf '#!/bin/bash\nexec /usr/lib/claude-desktop/claude-desktop --password-store=basic "$@"\n' > /usr/bin/claude-desktop; \
+      chmod +x /usr/bin/claude-desktop; \
       rm -rf /var/lib/apt/lists/*; \
     fi
 
