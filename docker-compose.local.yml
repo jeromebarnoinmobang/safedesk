@@ -4,6 +4,7 @@ services:
   desktop:
     ports:
       - "127.0.0.1:3000:3000"     # http://localhost:3000
+      - "127.0.0.1:3389:3389"     # RDP local (mstsc) - basse latence
     environment:
       # Latence bureau (loopback) : H.264 continu pixelflux, 60 fps, bitrate haut, full color.
       # Le bureau devient bien plus reactif qu'en mode paint-over JPEG par defaut.

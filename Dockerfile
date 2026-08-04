@@ -147,3 +147,13 @@ RUN set -eux; \
         chmod +x /usr/bin/claude-desktop; \
       fi; \
     fi
+
+# --- Acces RDP local basse latence (xrdp + KDE) ; port 3389 publie seulement en local ---
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends xrdp xorgxrdp dbus-x11; \
+    rm -rf /var/lib/apt/lists/*; \
+    adduser xrdp ssl-cert || true
+COPY files/etc/xrdp/startwm.sh /etc/xrdp/startwm.sh
+COPY files/custom-services.d/xrdp /custom-services.d/xrdp
+RUN chmod +x /etc/xrdp/startwm.sh /custom-services.d/xrdp

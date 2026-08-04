@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+# SafeDesk : acces RDP local basse latence (session KDE native via xrdp).
+# Port 3389 publie SEULEMENT en local (docker-compose.local.yml) -> loopback.
+# Login RDP = abc / <PASSWORD webtop>.
+[ -n "${PASSWORD:-}" ] && echo "abc:${PASSWORD}" | chpasswd 2>/dev/null
+pkill -x xrdp-sesman 2>/dev/null; pkill -x xrdp 2>/dev/null; sleep 1
+xrdp-sesman
+sleep 1
+exec xrdp -n
