@@ -4,6 +4,15 @@ services:
   desktop:
     ports:
       - "127.0.0.1:3000:3000"     # http://localhost:3000
+      # Sunshine (client Moonlight natif, latence mini) - loopback UNIQUEMENT
+      - "127.0.0.1:47984:47984"
+      - "127.0.0.1:47989:47989"
+      - "127.0.0.1:47990:47990"
+      - "127.0.0.1:48010:48010"
+      - "127.0.0.1:47998:47998/udp"
+      - "127.0.0.1:47999:47999/udp"
+      - "127.0.0.1:48000:48000/udp"
+      - "127.0.0.1:48002:48002/udp"
   home-sync:
     ports:
       - "127.0.0.1:8384:8384"     # GUI/API Syncthing (local dials out vers le VPS)
