@@ -157,3 +157,9 @@ RUN set -eux; \
 COPY files/etc/xrdp/startwm.sh /etc/xrdp/startwm.sh
 COPY files/custom-services.d/xrdp /custom-services.d/xrdp
 RUN chmod +x /etc/xrdp/startwm.sh /custom-services.d/xrdp
+
+# --- Audio RDP : module xrdp pre-compile + service de routage auto (toutes apps, RDP<->navigateur) ---
+COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so
+COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so
+COPY files/custom-services.d/safedesk-rdp-audio /custom-services.d/safedesk-rdp-audio
+RUN chmod +x /custom-services.d/safedesk-rdp-audio
