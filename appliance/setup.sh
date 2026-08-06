@@ -47,6 +47,13 @@ systemctl enable docker
 
 # IMPORTANT : NetworkManager ne doit PAS gerer les interfaces Docker (bridge/veth).
 # Sinon NM capture les veth des conteneurs -> ils perdent internet (l'hote, lui, l'a).
+# DNS explicite pour les conteneurs : sur Debian /etc/resolv.conf pointe un resolveur
+# loopback (systemd-resolved/NM) que Docker ne peut PAS passer aux conteneurs
+# -> "DNS resolver has no external nameservers" -> pas d internet dans le conteneur.
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<'DJEOF'
+{ "dns": ["1.1.1.1", "8.8.8.8"] }
+DJEOF
 mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/10-docker-unmanaged.conf <<'NMEOF'
 [keyfile]
