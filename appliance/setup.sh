@@ -45,6 +45,15 @@ if ! command -v docker >/dev/null; then
 fi
 systemctl enable docker
 
+# IMPORTANT : NetworkManager ne doit PAS gerer les interfaces Docker (bridge/veth).
+# Sinon NM capture les veth des conteneurs -> ils perdent internet (l'hote, lui, l'a).
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/10-docker-unmanaged.conf <<'NMEOF'
+[keyfile]
+unmanaged-devices=interface-name:docker*;interface-name:veth*;interface-name:br-*
+NMEOF
+systemctl reload NetworkManager 2>/dev/null || true
+
 echo "== [5/9] X minimal + FreeRDP + audio PipeWire =="
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   xserver-xorg-core xserver-xorg-input-libinput xinit x11-xserver-utils openbox \
