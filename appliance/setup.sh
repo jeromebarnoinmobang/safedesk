@@ -47,7 +47,7 @@ systemctl enable docker
 
 echo "== [5/9] X minimal + FreeRDP + audio PipeWire =="
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  xserver-xorg-core xserver-xorg-input-libinput xinit x11-xserver-utils openbox unclutter \
+  xserver-xorg-core xserver-xorg-input-libinput xinit x11-xserver-utils openbox \
   pipewire pipewire-pulse wireplumber pulseaudio-utils
 DEBIAN_FRONTEND=noninteractive apt-get install -y xserver-xorg-video-nvidia 2>/dev/null || true
 DEBIAN_FRONTEND=noninteractive apt-get install -y freerdp3-x11 || DEBIAN_FRONTEND=noninteractive apt-get install -y freerdp2-x11
@@ -115,19 +115,19 @@ systemctl enable safedesk-stack.service
 echo "== [9/9] Kiosque : X + xfreerdp plein ecran, reconnexion auto =="
 cat > /home/$KUSER/.bash_profile <<'EOF'
 if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
-  exec startx -- -nocursor >/tmp/startx.log 2>&1
+  exec startx >/tmp/startx.log 2>&1
 fi
 EOF
 cat > /home/$KUSER/.xinitrc <<'EOF'
 #!/bin/sh
 xset s off -dpms; xset s noblank
 openbox &
-unclutter -idle 0 >/dev/null 2>&1 &
+: # curseur visible (pas d unclutter)
 . /etc/safedesk/kiosk.env
 FRDP="$(command -v xfreerdp3 || command -v xfreerdp)"
 # resolution FIXE (pas de /dynamic-resolution : ca casse le socket audio cote serveur)
 while true; do
-  "$FRDP" /v:"$RDP_HOST" /u:"$RDP_USER" /p:"$RDP_PASSWORD" /f \
+  "$FRDP" /v:"$RDP_HOST" /u:"$RDP_USER" /p:"$RDP_PASSWORD" /multimon \
     /sound:sys:pulse /microphone:sys:pulse +clipboard /gfx:rfx \
     -grab-keyboard /cert:ignore /log-level:WARN >/tmp/frdp.log 2>&1
   sleep 3
