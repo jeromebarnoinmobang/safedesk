@@ -11,6 +11,7 @@ unload-module module-stream-restore
 unload-module module-device-restore
 unload-module module-default-device-restore
 unload-module module-switch-on-port-available
+set-default-sink xrdp-sink
 EOF
 rm -f /config/.config/google-chrome/Singleton* /config/.config/chromium/Singleton* /config/.config/Claude/Singleton* 2>/dev/null
 chown -R abc:abc "$PULSE" 2>/dev/null
