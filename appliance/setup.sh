@@ -75,6 +75,25 @@ fi
 
 echo "== [8/9] SafeDesk : repo + image + service au boot =="
 if [ ! -d "$APP_DIR/.git" ]; then git clone "$REPO_URL" "$APP_DIR"; else git -C "$APP_DIR" pull --ff-only || true; fi
+# .env du compose (DESKTOP_PASSWORD vient de /etc/safedesk/kiosk.env — jamais dans le repo)
+. /etc/safedesk/kiosk.env
+cat > "$APP_DIR/.env" <<ENVEOF
+PUID=1000
+PGID=1000
+TZ=Europe/Paris
+DESKTOP_USER=jerome
+DESKTOP_PASSWORD=$RDP_PASSWORD
+COMPOSE_PROJECT_NAME=mobang-desktop
+INSTALL_CHROME=true
+INSTALL_CLAUDE=true
+INSTALL_SUNSHINE=false
+INSTALL_FORGE=false
+SAFEDESK_FORGE_REMOTE=https://github.com/jeromebarnoinmobang/safedesk.git
+SAFEDESK_NAME=SafeDesk de Jerome
+SAFEDESK_URL=https://desktop.mobang.fr
+SAFEDESK_APP_URL=https://github.com/jeromebarnoinmobang/safedesk/releases/download/app-v0.1.0/SafeDesk-0.1.0.apk
+ENVEOF
+chmod 600 "$APP_DIR/.env"
 docker pull mobang/desktop:kde 2>/dev/null || (cd "$APP_DIR" && docker compose -f docker-compose.yml -f docker-compose.local.yml build)
 cat > /etc/systemd/system/safedesk-stack.service <<EOF
 [Unit]
