@@ -1,26 +1,29 @@
 #!/usr/bin/with-contenv bash
-# SafeDesk : audio RDP PERSISTANT (sortie + micro), pour toutes les apps.
-# Cle du fonctionnement : le module doit etre charge AVANT que Jerome se connecte,
-# car chansrv n'etablit son socket audio qu'a l'init de session, seulement si un
-# module est deja present. On charge donc au boot, puis on route en continu.
+# SafeDesk : audio RDP persistant (sortie + micro), toutes apps.
+# Le module xrdp est charge au demarrage de PulseAudio (default.pa) pour que chansrv
+# cree son socket a la connexion. Ici : des qu'un socket audio_out apparait (nouvel
+# inode = nouvelle session), on recharge le module pour l'y relier, puis on route.
 SD=/run/xrdp/sockdir/1000
 pa(){ s6-setuidgid abc env HOME=/config pactl "$@"; }
-# attendre PulseAudio
 for i in $(seq 1 120); do pa info >/dev/null 2>&1 && break; sleep 1; done
-# charger les modules xrdp pour :10 UNE fois (jamais recharger -> ne casse pas le socket)
-pa list modules short | grep -q "audio_out_socket_10" || pa load-module module-xrdp-sink   xrdp_socket_path=$SD xrdp_pulse_sink_socket=xrdp_chansrv_audio_out_socket_10 2>/dev/null
-pa list modules short | grep -q "audio_in_socket_10"  || pa load-module module-xrdp-source xrdp_socket_path=$SD xrdp_pulse_source_socket=xrdp_chansrv_audio_in_socket_10 2>/dev/null
-# router en continu selon la presence d'une session RDP sur :10
+connected=""
 while true; do
-  # filet de securite : si le module a saute, le recharger (hors session pour ne pas casser)
-  if [ ! -S $SD/xrdp_chansrv_socket_10 ]; then
-    pa list modules short | grep -q "audio_out_socket_10" || pa load-module module-xrdp-sink   xrdp_socket_path=$SD xrdp_pulse_sink_socket=xrdp_chansrv_audio_out_socket_10 2>/dev/null
-    pa list modules short | grep -q "audio_in_socket_10"  || pa load-module module-xrdp-source xrdp_socket_path=$SD xrdp_pulse_source_socket=xrdp_chansrv_audio_in_socket_10 2>/dev/null
-    pa set-default-sink output 2>/dev/null; pa set-default-source output.monitor 2>/dev/null
-  else
+  D=$(ls $SD/xrdp_chansrv_audio_out_socket_* 2>/dev/null | sed "s/.*socket_//" | head -1)
+  if [ -n "$D" ]; then
+    INO=$(ls -i $SD/xrdp_chansrv_audio_out_socket_$D 2>/dev/null | awk "{print \$1}")
+    if [ "$connected" != "$INO" ]; then
+      for m in $(pa list modules short | grep -i module-xrdp | cut -f1); do pa unload-module $m 2>/dev/null; done
+      pa load-module module-xrdp-sink   xrdp_socket_path=$SD xrdp_pulse_sink_socket=xrdp_chansrv_audio_out_socket_$D 2>/dev/null
+      pa load-module module-xrdp-source xrdp_socket_path=$SD xrdp_pulse_source_socket=xrdp_chansrv_audio_in_socket_$D 2>/dev/null
+      connected="$INO"
+    fi
     pa set-default-sink xrdp-sink 2>/dev/null
     pa set-default-source xrdp-source 2>/dev/null
-    for si in $(pa list sink-inputs short 2>/dev/null|cut -f1); do pa move-sink-input $si xrdp-sink 2>/dev/null; done
+    for si in $(pa list sink-inputs short 2>/dev/null | cut -f1); do pa move-sink-input $si xrdp-sink 2>/dev/null; done
+  else
+    connected=""
+    pa set-default-sink output 2>/dev/null
+    pa set-default-source output.monitor 2>/dev/null
   fi
   sleep 1
 done

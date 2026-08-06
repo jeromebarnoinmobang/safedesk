@@ -163,3 +163,7 @@ COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so /usr/lib/pulse-1
 COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so
 COPY files/custom-services.d/safedesk-rdp-audio /custom-services.d/safedesk-rdp-audio
 RUN chmod +x /custom-services.d/safedesk-rdp-audio
+
+# --- Audio SafeDesk : setup init (client.conf + default.pa propre + nettoyage verrous) ---
+COPY files/custom-cont-init.d/safedesk-audio-setup /custom-cont-init.d/safedesk-audio-setup
+RUN chmod +x /custom-cont-init.d/safedesk-audio-setup
