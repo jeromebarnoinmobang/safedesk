@@ -94,7 +94,7 @@ SAFEDESK_URL=https://desktop.mobang.fr
 SAFEDESK_APP_URL=https://github.com/jeromebarnoinmobang/safedesk/releases/download/app-v0.1.0/SafeDesk-0.1.0.apk
 ENVEOF
 chmod 600 "$APP_DIR/.env"
-docker pull mobang/desktop:kde 2>/dev/null || (cd "$APP_DIR" && docker compose -f docker-compose.yml -f docker-compose.local.yml build)
+docker pull mobang/desktop:kde 2>/dev/null || (cd "$APP_DIR" && docker compose -f docker-compose.yml -f docker-compose.local.yml build) || true
 cat > /etc/systemd/system/safedesk-stack.service <<EOF
 [Unit]
 Description=SafeDesk desktop container stack
