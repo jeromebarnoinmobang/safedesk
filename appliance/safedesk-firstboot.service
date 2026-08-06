@@ -1,0 +1,17 @@
+[Unit]
+Description=SafeDesk first-boot provisioning (setup.sh)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/safedesk/appliance/setup.sh
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/safedesk/appliance/setup.sh
+ExecStartPost=-/usr/bin/systemctl disable safedesk-firstboot.service
+ExecStartPost=/usr/bin/systemctl reboot
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target
