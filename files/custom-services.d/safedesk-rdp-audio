@@ -1,30 +1,25 @@
 #!/usr/bin/with-contenv bash
-# SafeDesk : audio RDP perenne. On detecte la SESSION (xrdp_display_*), PAS la socket
-# audio_out (creee a la demande) -> evite le cercle vicieux. Des qu'une session RDP est
-# la : xrdp-sink par defaut + rapatriement des flux, pour que le son coule vers le client
-# (ce qui active la socket a la demande). stream-restore desactive (sinon re-epingle).
+# SafeDesk : audio RDP perenne. Route TOUJOURS le son vers ton client (xrdp-sink) :
+# pas de detection fragile, pas de branche 'output' qui casse. Les modules qui
+# re-memorisent 'output' sont decharges (ici + default.pa). Recharge le module xrdp
+# si le display change (reconnexion).
 SD=/run/xrdp/sockdir/1000
 pa(){ s6-setuidgid abc env HOME=/config pactl "$@"; }
 for i in $(seq 1 120); do pa info >/dev/null 2>&1 && break; sleep 1; done
-pa unload-module module-stream-restore 2>/dev/null
-prev=""
+for m in module-stream-restore module-device-restore module-default-device-restore module-switch-on-port-available; do pa unload-module $m 2>/dev/null; done
+loaded=""
 while true; do
-  D=$(ls $SD/xrdp_display_* 2>/dev/null | sed "s/.*display_//" | head -1)
-  if [ -n "$D" ]; then
-    if [ "$prev" != "$D" ]; then
-      for m in $(pa list modules short | grep -i module-xrdp | cut -f1); do pa unload-module $m 2>/dev/null; done
-      pa load-module module-xrdp-sink   xrdp_socket_path=$SD xrdp_pulse_sink_socket=xrdp_chansrv_audio_out_socket_$D 2>/dev/null
-      pa load-module module-xrdp-source xrdp_socket_path=$SD xrdp_pulse_source_socket=xrdp_chansrv_audio_in_socket_$D 2>/dev/null
-      prev="$D"
-    fi
-    XS=$(pa list sinks short 2>/dev/null | grep -P "\txrdp-sink\t" | cut -f1)
+  D=$(ls $SD/xrdp_display_* 2>/dev/null | sed "s#.*/xrdp_display_##" | head -1)
+  if [ -n "$D" ] && [ "$loaded" != "$D" ]; then
+    for m in $(pa list modules short | grep -i module-xrdp | cut -f1); do pa unload-module $m 2>/dev/null; done
+    pa load-module module-xrdp-sink   xrdp_socket_path=$SD xrdp_pulse_sink_socket=xrdp_chansrv_audio_out_socket_$D 2>/dev/null
+    pa load-module module-xrdp-source xrdp_socket_path=$SD xrdp_pulse_source_socket=xrdp_chansrv_audio_in_socket_$D 2>/dev/null
+    loaded="$D"
+  fi
+  XS=$(pa list sinks short 2>/dev/null | grep -P "\txrdp-sink\t" | cut -f1)
+  if [ -n "$XS" ]; then
     pa set-default-sink xrdp-sink 2>/dev/null
-    pa set-default-source xrdp-source 2>/dev/null
     for si in $(pa list sink-inputs short 2>/dev/null | cut -f1); do pa move-sink-input "$si" "$XS" 2>/dev/null; done
-  else
-    prev=""
-    pa set-default-sink output 2>/dev/null
-    pa set-default-source output.monitor 2>/dev/null
   fi
   sleep 1
 done

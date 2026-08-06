@@ -8,6 +8,9 @@ cat > "$PULSE/default.pa" <<EOF
 load-module module-xrdp-sink   xrdp_socket_path=/run/xrdp/sockdir/1000 xrdp_pulse_sink_socket=xrdp_chansrv_audio_out_socket_10
 load-module module-xrdp-source xrdp_socket_path=/run/xrdp/sockdir/1000 xrdp_pulse_source_socket=xrdp_chansrv_audio_in_socket_10
 unload-module module-stream-restore
+unload-module module-device-restore
+unload-module module-default-device-restore
+unload-module module-switch-on-port-available
 EOF
 rm -f /config/.config/google-chrome/Singleton* /config/.config/chromium/Singleton* /config/.config/Claude/Singleton* 2>/dev/null
 chown -R abc:abc "$PULSE" 2>/dev/null
