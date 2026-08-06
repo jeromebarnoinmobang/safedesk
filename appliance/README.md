@@ -14,7 +14,7 @@ Intel i9-7940X - **NVIDIA RTX 3080** - 64 Go - Samsung 990 EVO Plus **4 To** - G
 ## Option A - Installation 100% automatique (recommande)
 
 1. Recupere l ISO **Debian 13 (trixie) netinst** : https://www.debian.org/distrib/netinst -> flashe-la sur une cle USB (Rufus).
-2. /!\ **Debranche tout disque USB/externe** (le WD Elements). L install vise le **plus gros disque** = ton NVMe 4 To. Verifie que Windows est bien sur un AUTRE disque.
+2. **Verifie sur cette machine (06/08/2026)** : Windows = disque 0 (Samsung 970, 2 To). Cible = disque 1 (Samsung 990, **4 To**, le plus gros). Cle = WD USB (931 Go, le plus petit -> intacte). L auto-install vise donc le 4 To, Windows reste intact. IMPORTANT : Windows boote en **Legacy/BIOS** -> boote la cle Debian dans le MEME mode (au boot menu Gigabyte F12, choisis l entree USB **SANS prefixe UEFI**) pour un dual-boot propre.
 3. Boote la cle. Au menu Debian, touche `TAB` (ou `e`) pour editer la ligne de boot et ajoute :
    ```
    auto=true priority=critical url=https://raw.githubusercontent.com/jeromebarnoinmobang/safedesk/main/appliance/preseed.cfg
