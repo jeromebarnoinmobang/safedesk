@@ -84,7 +84,7 @@ if [ ! -f /etc/safedesk/kiosk.env ]; then
   cat > /etc/safedesk/kiosk.env <<EOF
 RDP_HOST=127.0.0.1:3389
 RDP_USER=abc
-RDP_PASSWORD=${SAFEDESK_PASSWORD:-REDACTED}
+RDP_PASSWORD=${SAFEDESK_PASSWORD:-CHANGE-ME-avant-usage}
 EOF
   chmod 600 /etc/safedesk/kiosk.env
 fi
