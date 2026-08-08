@@ -18,6 +18,13 @@ case "$MODE" in
   *)   echo "aucun rendu GPU -> rendu logiciel"; export RENDER_PROFILE=zz-no-gpu ;;
 esac
 
+# Camera USB : passee au conteneur si presente cote hote (Linux natif uniquement).
+# Le micro n a pas besoin de device : il arrive par la redirection RDP (voir docker-compose.av.yml).
+if [ -e /dev/video0 ]; then
+  echo "[detect] camera USB -> passthrough /dev/video0"
+  FILES+=(-f docker-compose.av.yml)
+fi
+
 docker compose "${FILES[@]}" up -d
 echo
 echo "Bureau : http://localhost:3000   (rendu : $RENDER_PROFILE)"

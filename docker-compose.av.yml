@@ -1,0 +1,17 @@
+# Override AV — camera USB (Logitech C920) de l HOTE local dans le bureau. LOCAL uniquement.
+# Applique automatiquement par scripts/up-local.sh et scripts/up-appliance.sh si /dev/video0 existe.
+#
+# Le MICRO ne passe PAS par ici : il arrive deja par la redirection RDP du kiosque
+# (xfreerdp /microphone:sys:pulse -> module-xrdp-source -> source Pulse "xrdp-source").
+# Passer /dev/snd au conteneur CASSERAIT ce partage : l audio ALSA de l hote appartient
+# a PipeWire (kiosque), un seul proprietaire hw a la fois.
+#
+# Limite connue : si la camera est debranchee/rebranchee, le node du conteneur devient
+# obsolete -> recreer le conteneur (up-appliance.sh) pour la retrouver.
+services:
+  desktop:
+    devices:
+      - /dev/video0:/dev/video0
+    volumes:
+      # Donne a abc l acces au node video (gid HOTE inconnu d avance -> script, pas group_add).
+      - ./files/custom-cont-init.d/safedesk-video-groups:/custom-cont-init.d/safedesk-video-groups:ro

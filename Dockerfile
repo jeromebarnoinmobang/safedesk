@@ -167,3 +167,8 @@ RUN chmod +x /custom-services.d/safedesk-rdp-audio
 # --- Audio SafeDesk : setup init (client.conf + default.pa propre + nettoyage verrous) ---
 COPY files/custom-cont-init.d/safedesk-audio-setup /custom-cont-init.d/safedesk-audio-setup
 RUN chmod +x /custom-cont-init.d/safedesk-audio-setup
+
+# --- Camera USB locale (docker-compose.av.yml) : outil v4l2 de capture/diagnostic ---
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends v4l-utils && \
+    rm -rf /var/lib/apt/lists/*

@@ -121,11 +121,12 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
-ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.local.yml down
+ExecStart=/usr/bin/bash $APP_DIR/scripts/up-appliance.sh up -d
+ExecStop=/usr/bin/bash $APP_DIR/scripts/up-appliance.sh down
 [Install]
 WantedBy=multi-user.target
 EOF
+systemctl daemon-reload
 systemctl enable safedesk-stack.service
 
 echo "== [9/9] Kiosque : X + xfreerdp plein ecran, reconnexion auto =="

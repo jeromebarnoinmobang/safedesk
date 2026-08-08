@@ -1,0 +1,13 @@
+# Les scripts et configs de ce repo sont executes DANS le conteneur Linux (montes ou COPY).
+# Un checkout Windows (core.autocrlf=true) en CRLF casserait bash/pulse en silence -> LF force.
+* text=auto
+files/** text eol=lf
+scripts/*.sh text eol=lf
+appliance/*.sh text eol=lf
+appliance/*.cfg text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf
+# Binaires : jamais de conversion
+*.so -text
+*.png -text
+*.apk -text
