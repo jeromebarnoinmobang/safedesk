@@ -1,11 +1,21 @@
 #!/usr/bin/with-contenv bash
-# SafeDesk AV : donne a abc l acces aux /dev/video* passes par docker-compose.av.yml.
+# SafeDesk AV : donne a abc l acces aux /dev/video* de l hote (hotplug via
+# docker-compose.av.yml : /dev monte + cgroup rules).
 # Le gid des nodes vient de l HOTE ; on cree/rejoint le groupe correspondant.
-# (l init-video de l image linuxserver ne scanne que /dev/dri et /dev/dvb, pas /dev/video*)
+# (l init-video de l image linuxserver ne scanne que /dev/dri et /dev/dvb)
+joined=""
 for dev in /dev/video*; do
   [ -c "$dev" ] || continue
   gid=$(stat -c %g "$dev")
   getent group "$gid" >/dev/null || groupadd -g "$gid" "hostvideo$gid"
   gname=$(getent group "$gid" | cut -d: -f1)
   usermod -a -G "$gname" abc 2>/dev/null || true
+  joined=1
 done
+# Aucune camera au boot ? (hotplug : elle arrivera peut-etre plus tard.)
+# On rejoint le gid "video" usuel des distros (44) pour que le branchement
+# a chaud marche sans redemarrage dans le cas courant.
+if [ -z "$joined" ]; then
+  getent group 44 >/dev/null || groupadd -g 44 hostvideo44
+  usermod -a -G "$(getent group 44 | cut -d: -f1)" abc 2>/dev/null || true
+fi
