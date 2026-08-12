@@ -64,8 +64,21 @@ elif [ -n "$HAS_FORGE" ] && [ -n "${SAFEDESK_PUBLISH_SSH:-}" ]; then PUB_MODE=ss
 elif [ -n "${SAFEDESK_FORGE_SSH:-}" ]; then PUB_MODE=remote
 fi
 
+# Jeton STABLE par bureau : le MEME QR reste valable pour toujours (imprimable),
+# chaque clic republie juste la derniere APK derriere la meme URL. Revoquer
+# l acces = supprimer ce fichier (un nouveau jeton sera genere) + purger sd/t/.
+TOKEN=""
+TOKEN_FILE="$HOME/.config/safedesk/qr-token"
+if [ -n "$PUB_MODE" ]; then
+  TOKEN=$(cat "$TOKEN_FILE" 2>/dev/null || true)
+  if [ -z "$TOKEN" ]; then
+    TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
+    mkdir -p "$(dirname "$TOKEN_FILE")"
+    printf %s "$TOKEN" > "$TOKEN_FILE"; chmod 600 "$TOKEN_FILE"
+  fi
+fi
+
 if [ "$PUB_MODE" = remote ]; then
-  TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
   LINK="$URL/sd/t/$TOKEN/#$DATA"
   STATUS="application personnalisee en cours de forge distante (~1 min)..."
   (
@@ -154,7 +167,6 @@ RBODY
     rm -rf "$ST"
   ) &
 elif [ -n "$PUB_MODE" ]; then
-  TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
   DEST="/landing/sd/t/$TOKEN"
   [ "$PUB_MODE" = ssh ] && DEST="/tmp/sd-pub/stage/sd/t/$TOKEN"
   LINK="$URL/sd/t/$TOKEN/#$DATA"
