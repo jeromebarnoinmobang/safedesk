@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Camera
+GenericName=Prendre une photo
+Comment=Prend une photo avec la camera de cet appareil (ou indique ou ouvrir la page depuis un appareil qui en a une) - la photo arrive dans Images/Webcam
+Exec=wrapped-google-chrome --app=http://127.0.0.1:8088/voice/cam
+Icon=camera-photo
+Categories=Utility;
+Terminal=false

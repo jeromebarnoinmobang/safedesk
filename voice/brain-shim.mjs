@@ -436,6 +436,58 @@ function brainReady() {
   return process.env.CLAUDE_CODE_OAUTH_TOKEN ? null : 'claude: CLAUDE_CODE_OAUTH_TOKEN manquant';
 }
 
+// ---- page caméra : capture sur l'appareil qui A la caméra, photo déposée ----
+// dans le home du bureau (/config/Pictures/Webcam). Même modèle que le micro
+// de la page vocale : le navigateur LOCAL fournit le matériel, le bureau reçoit.
+const PUBLIC_URL = (process.env.SAFEDESK_URL || '').replace(/\/+$/, '');
+const CAM_DIR = process.env.VOICE_CAM_DIR || '/config/Pictures/Webcam';
+const CAM_HTML = `<!doctype html><html lang=fr><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Caméra — SafeDesk</title>
+<style>:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#0f1115;color:#e6e6e6;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;padding:13px 16px;background:#161922;border-bottom:1px solid #262b36;font-weight:600;color:#8aa0ff;text-align:center}
+main{flex:1;width:100%;max-width:720px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:14px}
+video{width:100%;border-radius:14px;background:#000}
+button{border:none;border-radius:14px;background:#2d6cdf;color:#fff;font-size:20px;font-weight:600;padding:16px 30px;cursor:pointer}
+.msg{color:#9aa6bd;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}
+.url{font-size:18px;color:#7ef0dc;word-break:break-all;background:#14322d;padding:12px;border-radius:10px}</style></head><body>
+<header>📷 Caméra — SafeDesk</header>
+<main id=main><div class=msg id=st>Démarrage de la caméra…</div></main>
+<script>
+var base=location.pathname.replace(/\\/cam\\/?$/,'');
+var token=localStorage.getItem('voiceToken')||'';
+if(location.hash&&location.hash.indexOf('#t=')===0){token=decodeURIComponent(location.hash.slice(3));localStorage.setItem('voiceToken',token);try{history.replaceState(null,'',location.pathname)}catch(e){}}
+function hdrs(extra){var h=extra||{};if(token)h['x-voice-token']=token;return h}
+var main=document.getElementById('main'),st=document.getElementById('st');
+function noCam(err){
+ st.textContent='Aucune caméra utilisable ici ('+err+').';
+ var p=document.createElement('div');p.className='msg';
+ p.textContent='\\nOuvre cette page sur l\\'appareil qui a la caméra (téléphone, PC avec webcam) :';
+ var u=document.createElement('div');u.className='url';
+ u.textContent=(${JSON.stringify(PUBLIC_URL)}||location.origin)+location.pathname;
+ main.appendChild(p);main.appendChild(u);
+}
+if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){noCam('page non sécurisée ou navigateur trop ancien')}
+else navigator.mediaDevices.getUserMedia({video:{width:{ideal:1920},height:{ideal:1080}}}).then(function(s){
+ st.textContent='Cadre, puis appuie sur le bouton.';
+ var v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.srcObject=s;main.appendChild(v);
+ var b=document.createElement('button');b.textContent='📸  Prendre la photo';main.appendChild(b);
+ var busy=false;
+ b.onclick=function(){
+  if(busy)return;busy=true;b.textContent='…';
+  var c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  c.toBlob(function(blob){
+   fetch(base+'/cam/upload',{method:'POST',headers:hdrs({'content-type':'image/jpeg'}),body:blob})
+   .then(function(r){if(r.status===401){token=prompt('Token (BRAIN_SHIM_TOKEN)')||'';localStorage.setItem('voiceToken',token);throw new Error('token mis à jour — reprends la photo')}
+    if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+   .then(function(j){st.textContent='✅ Photo enregistrée sur le bureau ('+j.file+') — tu peux en reprendre une.';busy=false;b.textContent='📸  Prendre la photo'})
+   .catch(function(e){st.textContent='⚠ '+e.message;busy=false;b.textContent='📸  Prendre la photo'});
+  },'image/jpeg',0.92);
+ };
+}).catch(function(e){noCam(e.name||e.message)});
+</script></body></html>`;
+
 // ---- page vocale (micro MediaRecorder + VAD maison, zéro Web Speech API) ----
 const VOICE_HTML = `<!doctype html><html lang=fr><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>Voix — SafeDesk</title>
@@ -643,6 +695,23 @@ const server = http.createServer(async (req, res) => {
   if ((u.pathname === '/voice' || u.pathname === '/voice/') && req.method === 'GET') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
     res.end(VOICE_HTML); return;
+  }
+  if ((u.pathname === '/voice/cam' || u.pathname === '/voice/cam/') && req.method === 'GET') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(CAM_HTML); return;
+  }
+  // photo prise sur l'appareil distant → déposée dans le home du bureau
+  if (u.pathname === '/voice/cam/upload' && req.method === 'POST') {
+    if (!bearerOk(req)) return send(res, 401, { error: 'unauthorized' });
+    let img;
+    try { img = await readBodyBuffer(req); } catch (e) { return send(res, 413, { error: String(e.message || e) }); }
+    if (!img || img.length < 1000) return send(res, 400, { error: 'image vide' });
+    const name = `photo-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.jpg`;
+    try {
+      fs.mkdirSync(CAM_DIR, { recursive: true });
+      fs.writeFileSync(`${CAM_DIR}/${name}`, img);
+    } catch (e) { return send(res, 500, { error: String(e.message || e) }); }
+    return send(res, 200, { ok: true, file: name, dir: CAM_DIR });
   }
   // ---- STT : blob micro (webm/mp4/wav) → faster-whisper RunPod → texte ----
   if (u.pathname === '/voice/stt' && req.method === 'POST') {

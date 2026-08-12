@@ -127,6 +127,9 @@ COPY files/custom-services.d/safedesk-nginx /custom-services.d/safedesk-nginx
 # service s6 — actif seulement si /config/.config/safedesk/voice.env existe.
 COPY voice/brain-shim.mjs /usr/local/bin/safedesk-voice-shim.mjs
 COPY files/custom-services.d/safedesk-voice /custom-services.d/safedesk-voice
+# Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
+# camera -> Images/Webcam du bureau)
+COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop
 RUN chmod +x /usr/local/bin/safedesk-launcher
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome

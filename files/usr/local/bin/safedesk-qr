@@ -84,6 +84,10 @@ if [ "$PUB_MODE" = remote ]; then
   (
     set +e
     fail() { echo "[sd-pub] ECHEC: $1" >> /tmp/sd-pub.log; exit 0; }
+    # UNE forge a la fois (double-clic, relances) : le QR affiche reste valable,
+    # la publication en cours suffira (jeton stable = meme URL).
+    exec 9>>"$OUT/.forge-lock"
+    flock -n 9 || { echo "[sd-pub] forge deja en cours — publication sautee" >> /tmp/sd-pub.log; exit 0; }
     : > /tmp/sd-pub.log
     FH="$SAFEDESK_FORGE_SSH"
     PUB="${SAFEDESK_PUBLISH_PATH:-/opt/mobang/safedesk/landing}"
@@ -160,10 +164,11 @@ ls -dt $PUB/sd/t/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
 docker run --rm -v $B:/b $IMG bash -c 'rm -rf /b/keys /b/safedesk.json /b/work /b/src.tgz /b/android /b/builder'
 echo "PUBLIE sd/t/$TOKEN"
 RBODY
-    scp -q -r "$ST" "$FH:/tmp/sd-remote-forge.new" >> /tmp/sd-pub.log 2>&1 || fail "scp staging"
-    # le staging precedent peut contenir des restes root (bind mount docker) :
-    # nettoyage via docker si possible, sinon rm simple (premier passage)
-    ssh -o BatchMode=yes "$FH" "docker run --rm -v /tmp:/t alpine rm -rf /t/sd-remote-forge 2>/dev/null || rm -rf /tmp/sd-remote-forge; mv /tmp/sd-remote-forge.new /tmp/sd-remote-forge && bash /tmp/sd-remote-forge/remote.sh" >> /tmp/sd-pub.log 2>&1 || fail "forge distante (voir /tmp/sd-pub.log)"
+    NEW="/tmp/sd-remote-forge.new.$$"
+    scp -q -r "$ST" "$FH:$NEW" >> /tmp/sd-pub.log 2>&1 || fail "scp staging"
+    # Verrou COTE HOTE aussi (plusieurs bureaux / relances) + nettoyage du
+    # staging precedent PAR docker (restes root du bind mount gradle).
+    ssh -o BatchMode=yes "$FH" "flock /tmp/sd-forge.lock -c 'docker run --rm -v /tmp:/t alpine rm -rf /t/sd-remote-forge 2>/dev/null || rm -rf /tmp/sd-remote-forge; mv $NEW /tmp/sd-remote-forge && bash /tmp/sd-remote-forge/remote.sh'" >> /tmp/sd-pub.log 2>&1 || fail "forge distante (voir /tmp/sd-pub.log)"
     rm -rf "$ST"
   ) &
 elif [ -n "$PUB_MODE" ]; then
