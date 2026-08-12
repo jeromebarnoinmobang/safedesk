@@ -9,15 +9,27 @@ C'est la brique « LLM gardien vocal » de SafeDesk : un assistant à qui l'on
 parle, qui explique sans jargon et met en garde contre les arnaques.
 Code hérité du voice-brain de la fleet mobang (v2, prouvé e2e le 2026-07-10).
 
-## Deux cerveaux au choix (`VOICE_BRAIN`)
+## Trois cerveaux au choix (`VOICE_BRAIN`)
 
-| | `claude` (défaut) | `openai` |
-|---|---|---|
-| Quoi | CLI officiel `claude` (session chaude, streaming) | Tout endpoint OpenAI-compatible — cas nominal : **RunPod serverless vLLM** |
-| Capacités | **Agentique** : vrais outils, MCP optionnel | Conversation pure (pas d'outils) |
-| Contexte | Gardé par la session chaude | Historique glissant géré par le shim (`VOICE_HISTORY_TURNS`) |
-| Coût | Abonnement Max (zéro clé API) | GPU serverless scale-to-zero (centimes) |
-| Config | `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) | `RUNPOD_LLM_ENDPOINT_ID` + `BRAIN_OPENAI_MODEL` (ou `BRAIN_OPENAI_BASE_URL` explicite) |
+| | `claude` (défaut) | `openai` | `relay` |
+|---|---|---|---|
+| Quoi | CLI officiel `claude` (session chaude, streaming) | Tout endpoint OpenAI-compatible — cas nominal : **RunPod serverless vLLM** | Un **agent externe** répond (session Claude Code, Cowork, autre LLM) |
+| Capacités | **Agentique** : vrais outils, MCP optionnel | Conversation pure (pas d'outils) | Celles de l'agent connecté |
+| Contexte | Gardé par la session chaude | Historique glissant géré par le shim (`VOICE_HISTORY_TURNS`) | Celui de l'agent |
+| Coût | Abonnement Max (zéro clé API) | GPU serverless scale-to-zero (centimes) | Celui de l'agent |
+| Config | `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) | `RUNPOD_LLM_ENDPOINT_ID` + `BRAIN_OPENAI_MODEL` (ou `BRAIN_OPENAI_BASE_URL` explicite) | `VOICE_RELAY_URL` + `VOICE_RELAY_TOKEN` (hub second-brain) — ou rien : fichiers locaux + `mcp-voice.mjs` |
+
+### Mode `relay` distant : le hub vocal du second-brain
+
+Le shim POUSSE chaque phrase transcrite au hub (`POST /voice/ask`) puis
+long-poll la réponse (`GET /voice/answer/<id>`, annulation par `POST
+/voice/cancel/<id>` au timeout). Côté agent, le serveur MCP du second-brain
+expose `voice_wait` / `voice_answer` / `voice_status` : **n'importe quelle
+session connectée au second-brain peut être le cerveau**, d'où qu'elle tourne.
+Aucune entrée réseau vers le bureau n'est nécessaire (un SafeDesk derrière une
+box marche pareil qu'un SafeDesk VPS). Les tours livrés à un agent sont
+« réclamés » (pas de double exécution si deux sessions écoutent) et portent un
+cadrage « transcription non authentifiée » anti-injection.
 
 ## Activer
 

@@ -65,11 +65,16 @@ const OAI_MODEL = process.env.BRAIN_OPENAI_MODEL || '';
 const OAI_MAX_TOKENS = Number(process.env.BRAIN_OPENAI_MAX_TOKENS || 700);
 const HISTORY_TURNS = Number(process.env.VOICE_HISTORY_TURNS || 8);
 const OAI_OK = !!(OAI_BASE && OAI_MODEL);
-// relay = cerveau EXTERNE par fichiers : le shim dépose q-<id>.json dans
-// VOICE_RELAY_DIR, un agent (ex. une session Claude Code dans le bureau)
-// répond en écrivant a-<id>.txt. Utile pour brancher n'importe quel agent
-// sans toucher au shim — c'est aussi le mode de test "humain dans la boucle".
+// relay = cerveau EXTERNE. Deux transports :
+//   - DISTANT (VOICE_RELAY_URL posé) : le shim POUSSE la phrase au hub vocal du
+//     second-brain (POST /voice/ask puis long-poll /voice/answer/<id>) — un
+//     agent MCP répond via voice_wait/voice_answer. Marche de partout (le
+//     bureau n'a besoin d'AUCUNE entrée réseau).
+//   - LOCAL (défaut) : fichiers q-<id>.json / a-<id>.txt dans VOICE_RELAY_DIR,
+//     consommés par mcp-voice.mjs ou /voice/agent/* (agent co-localisé).
 const RELAY_DIR = process.env.VOICE_RELAY_DIR || '/tmp/safedesk-voice-relay';
+const RELAY_URL = (process.env.VOICE_RELAY_URL || '').replace(/\/+$/, '');
+const RELAY_HUB_TOKEN = process.env.VOICE_RELAY_TOKEN || '';
 
 // ---- audio serverless (RunPod) ----------------------------------------------
 const RUNPOD_KEY = process.env.RUNPOD_API_KEY || '';
@@ -348,11 +353,54 @@ async function askOpenAI(userText, onDelta) {
   pushHistory('assistant', full);
   return full;
 }
-// ---- cerveau RELAY (agent externe par fichiers) ------------------------------
+// ---- cerveau RELAY, transport DISTANT (hub vocal second-brain) ---------------
+const DESK_NAME = process.env.VOICE_DESK_NAME || process.env.HOSTNAME || 'safedesk';
+async function askRelayRemote(userText, onDelta) {
+  const hubHeaders = { 'content-type': 'application/json', 'x-voice-relay-token': RELAY_HUB_TOKEN };
+  // annulation best-effort : un tour abandonné ne doit pas masquer les suivants
+  const cancelTurn = (id) => {
+    fetch(`${RELAY_URL}/voice/cancel/${id}`, { method: 'POST', headers: hubHeaders, signal: AbortSignal.timeout(8000) }).catch(() => {});
+  };
+  let r;
+  try {
+    r = await fetch(`${RELAY_URL}/voice/ask`, {
+      method: 'POST', headers: hubHeaders, body: JSON.stringify({ text: userText, source: DESK_NAME }),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (e) { throw new Error(`hub vocal injoignable: ${String(e.message || e).slice(0, 120)}`); }
+  if (!r.ok) throw new Error(`hub vocal ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`);
+  const { id } = await r.json().catch(() => { throw new Error('hub vocal: réponse illisible'); });
+  if (!id) throw new Error('hub vocal: pas d\'id retourné');
+  const deadline = Date.now() + TIMEOUT_MS;
+  try {
+    for (;;) {
+      const remain = deadline - Date.now();
+      if (remain <= 0) { cancelTurn(id); throw new Error("relay: le cerveau externe n'a pas répondu à temps"); }
+      const pollS = Math.max(2, Math.min(25, Math.floor(remain / 1000)));
+      const pr = await fetch(`${RELAY_URL}/voice/answer/${id}?timeout_s=${pollS}`, {
+        headers: hubHeaders, signal: AbortSignal.timeout((pollS + 15) * 1000),
+      }).catch((e) => { throw new Error(`hub vocal injoignable: ${String(e.message || e).slice(0, 120)}`); });
+      if (pr.status === 404) throw new Error('relay: tour expiré côté hub');
+      if (!pr.ok) throw new Error(`hub vocal ${pr.status}`);
+      // un 200 non-JSON (proxy intermédiaire, portail captif) = erreur de
+      // transport, PAS un {} silencieux qui martèlerait le hub sans pause
+      const j = await pr.json().catch(() => { throw new Error('hub vocal: réponse illisible'); });
+      if (typeof j.answer === 'string' && j.answer.trim()) { onDelta(j.answer); return j.answer; }
+      await new Promise((s) => setTimeout(s, 300)); // garde-fou anti-martèlement
+    }
+  } catch (e) {
+    // toute sortie en erreur (sauf tour déjà expiré côté hub) → cancel best-effort
+    if (!String(e.message || '').includes('expiré')) cancelTurn(id);
+    throw e;
+  }
+}
+
+// ---- cerveau RELAY, transport LOCAL (fichiers) -------------------------------
 // Dépose q-<id>.json et attend a-<id>.txt (écrit par l'agent — ex. l'outil MCP
-// voice_answer, ou une session Claude Code qui surveille le dossier).
+// voice_answer local, ou une session Claude Code qui surveille le dossier).
 let relaySeq = 0;
 async function askRelay(userText, onDelta) {
+  if (RELAY_URL) return askRelayRemote(userText, onDelta);
   fs.mkdirSync(RELAY_DIR, { recursive: true });
   const id = `${Date.now()}-${++relaySeq}`;
   const qf = `${RELAY_DIR}/q-${id}.json`, af = `${RELAY_DIR}/a-${id}.txt`;
@@ -381,7 +429,10 @@ function askBrain(userText, onDelta) {
 }
 function brainReady() {
   if (BRAIN === 'openai') return OAI_OK ? null : 'openai: BRAIN_OPENAI_BASE_URL (ou RUNPOD_LLM_ENDPOINT_ID) et BRAIN_OPENAI_MODEL requis';
-  if (BRAIN === 'relay') return null;
+  if (BRAIN === 'relay') {
+    if (RELAY_URL && !RELAY_HUB_TOKEN) return 'relay: VOICE_RELAY_URL posé sans VOICE_RELAY_TOKEN (le hub répondra 503)';
+    return null;
+  }
   return process.env.CLAUDE_CODE_OAUTH_TOKEN ? null : 'claude: CLAUDE_CODE_OAUTH_TOKEN manquant';
 }
 
@@ -681,6 +732,48 @@ const server = http.createServer(async (req, res) => {
     } catch {}
     return send(res, 200, { ok: true, warming: { stt: !!(RUNPOD_KEY && STT_EP), tts: !!(RUNPOD_KEY && TTS_EP), llm: BRAIN === 'openai' && OAI_OK } });
   }
+  // ---- côté AGENT du relay local (HTTP) -------------------------------------
+  // Pour un agent CO-LOCALISÉ avec le shim (même transport fichiers que
+  // mcp-voice.mjs). En transport DISTANT (VOICE_RELAY_URL posé), les tours
+  // partent au hub second-brain : ces routes répondent 409 pour ne pas laisser
+  // un agent local long-poller un dossier qui ne se remplira jamais.
+  if (u.pathname === '/voice/agent/wait' && (req.method === 'GET' || req.method === 'POST')) {
+    if (!bearerOk(req)) return send(res, 401, { error: 'unauthorized' });
+    if (BRAIN !== 'relay') return send(res, 409, { error: `VOICE_BRAIN=${BRAIN} — le shim ne route pas les tours vers un agent externe` });
+    if (RELAY_URL) return send(res, 409, { error: `transport relay DISTANT actif (${RELAY_URL}) — utilise les outils MCP voice_wait/voice_answer du hub` });
+    const cap = Math.min(Math.max(1, Number(u.searchParams.get('timeout_s') || 25)), 50) * 1000;
+    const deadline = Date.now() + cap;
+    fs.mkdirSync(RELAY_DIR, { recursive: true });
+    for (;;) {
+      let names = [];
+      try { names = fs.readdirSync(RELAY_DIR).filter((n) => n.startsWith('q-') && n.endsWith('.json')).sort(); } catch {}
+      for (const n of names) {
+        try {
+          const q = JSON.parse(fs.readFileSync(`${RELAY_DIR}/${n}`, 'utf8'));
+          if (q?.id && q?.text) return send(res, 200, { id: q.id, text: q.text, ts: q.ts });
+        } catch { /* fichier en cours d'écriture → tour suivant */ }
+      }
+      if (Date.now() > deadline) return send(res, 200, { waiting: true });
+      await new Promise((s) => setTimeout(s, 250));
+    }
+  }
+  if (u.pathname === '/voice/agent/answer' && req.method === 'POST') {
+    if (!bearerOk(req)) return send(res, 401, { error: 'unauthorized' });
+    if (RELAY_URL) return send(res, 409, { error: `transport relay DISTANT actif (${RELAY_URL}) — utilise les outils MCP voice_wait/voice_answer du hub` });
+    const raw = await readBody(req);
+    let p; try { p = JSON.parse(raw || '{}'); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const id = String(p.id || '').replace(/[^0-9a-zA-Z_-]/g, '');
+    const text = String(p.text || '').trim();
+    if (!id || !text) return send(res, 400, { error: 'id et text requis' });
+    if (!fs.existsSync(`${RELAY_DIR}/q-${id}.json`)) {
+      return send(res, 404, { error: `question ${id} inconnue ou expirée — attends la suivante via /voice/agent/wait` });
+    }
+    // write + rename = atomique (askRelay ne lira jamais un fichier partiel)
+    const tmp = `${RELAY_DIR}/.a-${id}.tmp`;
+    try { fs.writeFileSync(tmp, text + '\n'); fs.renameSync(tmp, `${RELAY_DIR}/a-${id}.txt`); }
+    catch (e) { return send(res, 500, { error: String(e.message || e) }); }
+    return send(res, 200, { ok: true, spoken: text.length });
+  }
   // /voice/chat = alias sous-chemin (page derrière le nginx SafeDesk) ;
   // /v1/chat/completions = façade OpenAI-compat pour les clients API.
   if ((u.pathname === '/v1/chat/completions' || u.pathname === '/voice/chat') && req.method === 'POST') {
@@ -706,14 +799,20 @@ const server = http.createServer(async (req, res) => {
 
     // Mode STREAM (SSE) : utilisé par la page vocale (envoie stream:true).
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' });
+    // Heartbeat : le cerveau relay/agentique peut rester muet >60s — sans un
+    // octet de temps en temps, un proxy intermédiaire coupe le flux et la page
+    // termine le tour en silence. Un commentaire SSE (`: ping`) est ignoré par
+    // le parseur de la page (elle ne lit que les lignes `data:`).
+    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 15000);
     try {
       await askBrain(userText, (t) => res.write(sseChunk(id, t)));
     } catch (e) {
-      // Les cerveaux claude ne rejettent jamais ; openai peut (réseau, 4xx/5xx).
-      // Le statut HTTP est déjà parti → l'erreur part comme texte, lue à voix haute.
+      // Les cerveaux claude ne rejettent jamais ; openai/relay peuvent (réseau,
+      // 4xx/5xx, timeout). Le statut HTTP est déjà parti → l'erreur part comme
+      // texte, lue à voix haute.
       res.write(sseChunk(id, `Désolé, le cerveau ne répond pas : ${String(e.message || e).slice(0, 200)}`));
       console.error('[brain] stream', String(e.message || e).slice(0, 300));
-    }
+    } finally { clearInterval(hb); }
     res.write(sseChunk(id, '', 'stop'));
     res.write('data: [DONE]\n\n');
     res.end();
@@ -729,7 +828,7 @@ process.on('unhandledRejection', (e) => console.error('[shim] unhandledRejection
 server.listen(PORT, () => {
   const brainDesc = BRAIN === 'openai'
     ? `openai(${OAI_MODEL || '?'} @ ${OAI_BASE ? new URL(OAI_BASE).host : '?'})`
-    : BRAIN === 'relay' ? `relay(${RELAY_DIR})`
+    : BRAIN === 'relay' ? `relay(${RELAY_URL ? 'hub ' + RELAY_URL : RELAY_DIR})`
     : `claude(${MODEL}/${EFFORT}) warm=${WARM}`;
   console.log(`brain-shim :${PORT}  brain=${brainDesc}  ready=${brainReady() || 'OK'}  second-brain=${SB ? 'on' + (PLANE_PROJECT ? '→' + PLANE_PROJECT : '') : 'off'}  stt=${RUNPOD_KEY && STT_EP ? 'runpod' : 'off'}  tts=${RUNPOD_KEY && TTS_EP ? 'runpod' : (LOCAL_TTS_URL ? 'local' : 'off')}`);
 });
