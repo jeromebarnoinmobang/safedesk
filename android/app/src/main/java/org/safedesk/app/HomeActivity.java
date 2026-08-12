@@ -100,6 +100,17 @@ public class HomeActivity extends AppCompatActivity {
             tv.setOnClickListener(v -> runApp(t));
             grid.addView(tv);
         }
+        // Tuile assistant vocal : la page /voice/ du bureau (micro + voix),
+        // jeton optionnel du QR passe en #fragment (jamais envoye au serveur).
+        TextView vv = tileView("\uD83C\uDF99\uFE0F", "Assistant vocal", "#14322D", "#7EF0DC");
+        vv.setOnClickListener(v -> {
+            Intent i = new Intent(this, DesktopActivity.class);
+            String tok = Config.voice(this);
+            i.putExtra("path", "/voice/" + (tok.isEmpty() ? "" : "#t=" + tok));
+            startActivity(i);
+        });
+        grid.addView(vv);
+
         TextView dv = tileView("\uD83D\uDDA5\uFE0F", "Bureau complet", "#1A1F29", "#E8ECF3");
         dv.setOnClickListener(v -> startActivity(new Intent(this, DesktopActivity.class)));
         grid.addView(dv);

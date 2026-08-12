@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
 
             Config.save(this, url, o.getString("user"), o.getString("pass"),
                 o.optString("name", getString(R.string.app_name)), fp);
+            Config.setVoice(this, o.optString("voice", ""));
             openDesktop();
             return true;
         } catch (Exception e) {

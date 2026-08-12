@@ -19,30 +19,51 @@ URL="${URL%/}"
 
 OUT="$HOME/.cache/safedesk-qr"; mkdir -p "$OUT"; chmod 700 "$OUT"
 
-JSON=$(printf '{"v":1,"name":"%s","url":"%s","user":"%s","pass":"%s"}' "$NAME" "$URL" "$CUSTOM_USER" "$PASSWORD")
+# Jeton de la page vocale (/voice/) : cuit dans la config si l assistant vocal
+# est configure sur ce bureau — la tuile "Assistant vocal" du telephone marche
+# alors sans aucune saisie. Absent sinon (champ vide ignore par l app).
+VOICE_TOKEN=""
+[ -r "$HOME/.config/safedesk/voice.env" ] && \
+  VOICE_TOKEN=$(sed -n 's/^BRAIN_SHIM_TOKEN=//p' "$HOME/.config/safedesk/voice.env" | head -1)
+VOICE_FIELD=""
+[ -n "$VOICE_TOKEN" ] && VOICE_FIELD=$(printf ',"voice":"%s"' "$VOICE_TOKEN")
+
+JSON=$(printf '{"v":1,"name":"%s","url":"%s","user":"%s","pass":"%s"%s}' "$NAME" "$URL" "$CUSTOM_USER" "$PASSWORD" "$VOICE_FIELD")
 DATA=$(printf %s "$JSON" | base64 -w0 | tr "+/" "-_" | tr -d "=")
 
 LINK="$URL/sd#$DATA"
 STATUS="QR simple (pas de publication : /landing absent)"
 
-if [ -d /landing ] && [ -w /landing ]; then
+# Cible de publication : /landing monte (deploiement remote nominal), sinon
+# SAFEDESK_PUBLISH_SSH="hote:/chemin/landing" (cle ssh en place) — utile quand
+# le mount /landing est casse ou sur un bureau local qui publie vers le VPS.
+PUB_MODE=""
+if [ -d /landing ] && [ -w /landing ]; then PUB_MODE=local
+elif [ -n "${SAFEDESK_PUBLISH_SSH:-}" ]; then PUB_MODE=ssh
+fi
+
+if [ -n "$PUB_MODE" ]; then
   TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
   DEST="/landing/sd/t/$TOKEN"
+  [ "$PUB_MODE" = ssh ] && DEST="/tmp/sd-pub/stage/sd/t/$TOKEN"
   LINK="$URL/sd/t/$TOKEN/#$DATA"
   STATUS="application personnalisee en cours de publication..."
   (
     set +e
-    safedesk-forge -n SafeDesk-base.apk -o /tmp/sd-pub >/tmp/sd-pub.log 2>&1 || exit 0
+    # Chaque echec est LOGGE (plus d abandon silencieux) : /tmp/sd-pub.log.
+    fail() { echo "[sd-pub] ECHEC: $1" >> /tmp/sd-pub.log; exit 0; }
+    safedesk-forge -n SafeDesk-base.apk -o /tmp/sd-pub >/tmp/sd-pub.log 2>&1 || fail "forge (gradle/toolchain — image construite avec INSTALL_FORGE=true ?)"
     WK=/tmp/sd-pub/work; rm -rf "$WK"; mkdir -p "$WK/assets"
     printf %s "$JSON" > "$WK/assets/safedesk.json"
     cp /tmp/sd-pub/SafeDesk-base.apk "$WK/app.apk"
-    ( cd "$WK" && zip -q app.apk assets/safedesk.json ) || exit 0
-    BT=$(ls -d "${ANDROID_HOME:-/opt/android-sdk}"/build-tools/* | sort -V | tail -1)
+    ( cd "$WK" && zip -q app.apk assets/safedesk.json ) || fail "injection zip de assets/safedesk.json"
+    BT=$(ls -d "${ANDROID_HOME:-/opt/android-sdk}"/build-tools/* 2>/dev/null | sort -V | tail -1)
+    [ -n "$BT" ] || fail "build-tools introuvables (ANDROID_HOME)"
     KEYDIR="$HOME/.config/safedesk/keys"; PASS_=$(cat "$KEYDIR/.pass")
-    "$BT/zipalign" -f -p 4 "$WK/app.apk" "$WK/aligned.apk"
+    "$BT/zipalign" -f -p 4 "$WK/app.apk" "$WK/aligned.apk" || fail "zipalign"
     "$BT/apksigner" sign --ks "$KEYDIR/forge.jks" --ks-pass "pass:$PASS_" \
       --ks-key-alias safedesk --key-pass "pass:$PASS_" \
-      --out "$WK/final.apk" "$WK/aligned.apk" || exit 0
+      --out "$WK/final.apk" "$WK/aligned.apk" || fail "apksigner"
     mkdir -p "$DEST"
     cp "$WK/final.apk" "$DEST/SafeDesk.apk"
     cat > "$DEST/index.html" <<PAGE
@@ -64,15 +85,26 @@ small{color:#5b6472}</style></head><body>
 </body></html>
 PAGE
     # assetlinks (App Links) avec l empreinte de la cle stable
+    ROOT=/landing; [ "$PUB_MODE" = ssh ] && ROOT=/tmp/sd-pub/stage
     if [ -f "$KEYDIR/forge.jks" ]; then
       FP=$(keytool -list -v -keystore "$KEYDIR/forge.jks" -alias safedesk \
              -storepass "$PASS_" 2>/dev/null | sed -n "s/.*SHA256: //p" | head -1)
-      mkdir -p /landing/.well-known
+      mkdir -p "$ROOT/.well-known"
       [ -n "$FP" ] && printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"org.safedesk.app","sha256_cert_fingerprints":["%s"]}}]' "$FP" \
-        > /landing/.well-known/assetlinks.json
+        > "$ROOT/.well-known/assetlinks.json"
     fi
-    # purge des anciennes publications (garde les 3 dernieres)
-    ls -dt /landing/sd/t/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
+    if [ "$PUB_MODE" = ssh ]; then
+      SSH_HOST="${SAFEDESK_PUBLISH_SSH%%:*}"; SSH_PATH="${SAFEDESK_PUBLISH_SSH#*:}"
+      ssh -o BatchMode=yes "$SSH_HOST" "mkdir -p '$SSH_PATH/sd/t'" >> /tmp/sd-pub.log 2>&1 || fail "ssh mkdir"
+      scp -q -r "$ROOT/sd/t/$TOKEN" "$SSH_HOST:$SSH_PATH/sd/t/" >> /tmp/sd-pub.log 2>&1 || fail "scp publication"
+      [ -f "$ROOT/.well-known/assetlinks.json" ] && \
+        scp -q -r "$ROOT/.well-known" "$SSH_HOST:$SSH_PATH/" >> /tmp/sd-pub.log 2>&1
+      # purge distante (garde les 3 dernieres)
+      ssh -o BatchMode=yes "$SSH_HOST" "ls -dt '$SSH_PATH'/sd/t/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf" >> /tmp/sd-pub.log 2>&1
+    else
+      # purge des anciennes publications (garde les 3 dernieres)
+      ls -dt /landing/sd/t/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
+    fi
   ) &
 fi
 

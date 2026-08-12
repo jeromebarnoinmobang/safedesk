@@ -11,4 +11,5 @@
     <string name="quit_no">Rester</string>
     <string name="quit_forget">Oublier ce SafeDesk</string>
     <string name="ssl_refused">Connexion refusée : le certificat du serveur ne correspond pas au code scanné.</string>
+    <string name="mic_refused">Micro refusé : autorise le micro dans les réglages pour parler à l\'assistant.</string>
 </resources>

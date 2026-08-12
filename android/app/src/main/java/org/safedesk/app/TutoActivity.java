@@ -98,6 +98,21 @@ public class TutoActivity extends AppCompatActivity {
         col.addView(hint);
 
         for (Tuto tu : tutos) col.addView(tutoCard(tu));
+
+        // Sortie du tutoriel vers les applications : sans ce bouton, le parcours
+        // senior etait un cul-de-sac (retour = fermeture de l app, jamais les tuiles).
+        Button apps = bigButton("✓  Mes applications", "#2DD4BF", "#0F1115");
+        apps.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        apps.setMinHeight(dp(72));
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        alp.topMargin = dp(10);
+        apps.setLayoutParams(alp);
+        apps.setOnClickListener(v -> {
+            startActivity(new Intent(this, HomeActivity.class));
+            finish();
+        });
+        col.addView(apps);
         setContentView(sc);
     }
 

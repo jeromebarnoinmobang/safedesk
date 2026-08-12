@@ -31,11 +31,16 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import java.security.MessageDigest;
 import java.util.Locale;
 
-/** Le bureau streame, plein ecran, auth automatique, ecran maintenu allume. */
+/** Le bureau streame, plein ecran, auth automatique, ecran maintenu allume.
+ *  Extra Intent optionnel "path" : sous-chemin a ouvrir sur le meme bureau
+ *  (ex. "/voice/" = page assistant vocal), defaut "" = bureau complet. */
 public class DesktopActivity extends AppCompatActivity {
+
+    private static final int REQ_MIC = 71;
 
     private WebView web;
     private int authTries = 0;
+    private PermissionRequest pendingPermRequest;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -87,11 +92,29 @@ public class DesktopActivity extends AppCompatActivity {
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
                     String host = android.net.Uri.parse(Config.url(DesktopActivity.this)).getHost();
-                    if (request.getOrigin() != null && host != null
-                            && host.equals(request.getOrigin().getHost())) {
-                        request.grant(request.getResources());
-                    } else {
+                    if (request.getOrigin() == null || host == null
+                            || !host.equals(request.getOrigin().getHost())) {
                         request.deny();
+                        return;
+                    }
+                    // On ne grante QUE le micro (la page /voice/ n a besoin de
+                    // rien d autre) — jamais request.getResources() en bloc.
+                    boolean wantsAudio = false;
+                    for (String r : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsAudio = true;
+                    }
+                    if (!wantsAudio) { request.deny(); return; }
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(
+                            DesktopActivity.this, android.Manifest.permission.RECORD_AUDIO)
+                            == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        request.grant(new String[]{ PermissionRequest.RESOURCE_AUDIO_CAPTURE });
+                    } else {
+                        // le grant WebView est sans effet tant que l app n a pas
+                        // la permission Android : on la demande, reponse dans
+                        // onRequestPermissionsResult.
+                        pendingPermRequest = request;
+                        androidx.core.app.ActivityCompat.requestPermissions(DesktopActivity.this,
+                            new String[]{ android.Manifest.permission.RECORD_AUDIO }, REQ_MIC);
                     }
                 });
             }
@@ -134,11 +157,29 @@ public class DesktopActivity extends AppCompatActivity {
         });
 
         hideBars();
-        web.loadUrl(Config.url(this));
+        String path = getIntent().getStringExtra("path");
+        web.loadUrl(Config.url(this) + (path == null ? "" : path));
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { finish(); }  // retour a l accueil a tuiles
         });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code != REQ_MIC || pendingPermRequest == null) return;
+        PermissionRequest req = pendingPermRequest;
+        pendingPermRequest = null;
+        boolean granted = results.length > 0
+                && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        try {
+            if (granted) req.grant(new String[]{ PermissionRequest.RESOURCE_AUDIO_CAPTURE });
+            else {
+                req.deny();
+                Toast.makeText(this, R.string.mic_refused, Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception ignored) { /* requete WebView deja invalidee */ }
     }
 
     private static String sha256Of(SslCertificate cert) {

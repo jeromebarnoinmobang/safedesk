@@ -37,6 +37,16 @@ final class Config {
     static String fp(Context c)   { return p(c).getString("fp", ""); }
 
     /**
+     * Jeton de la page vocale (/voice/#t=...), optionnel dans le QR (champ "voice").
+     * La page l envoie en X-Voice-Token au shim ; sans jeton la tuile ouvre la
+     * page nue (le shim peut tourner sans BRAIN_SHIM_TOKEN derriere l auth bureau).
+     */
+    static String voice(Context c) { return p(c).getString("voice", ""); }
+    static void setVoice(Context c, String v) {
+        p(c).edit().putString("voice", v == null ? "" : v).apply();
+    }
+
+    /**
      * Hote "prive" : IP litterale d un reseau prive/VPN (RFC1918, CGNAT/tailnet
      * 100.64/10, boucle locale). Seul cas ou http:// est accepte : le trafic y est
      * deja chiffre par le tunnel (WireGuard/VPN) ou reste sur la machine.
