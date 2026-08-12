@@ -441,6 +441,15 @@ function brainReady() {
 // de la page vocale : le navigateur LOCAL fournit le matériel, le bureau reçoit.
 const PUBLIC_URL = (process.env.SAFEDESK_URL || '').replace(/\/+$/, '');
 const CAM_DIR = process.env.VOICE_CAM_DIR || '/config/Pictures/Webcam';
+const VCAM_DEV = process.env.VOICE_VCAM_DEVICE || '/dev/video7';
+let vcam = null; // flux caméra virtuelle actif { proc, lastFeed }
+// filet : un flux abandonné (page fermée sans stop) libère ffmpeg après 15 s
+setInterval(() => {
+  if (vcam && Date.now() - vcam.lastFeed > 15000) {
+    try { vcam.proc.kill('SIGTERM'); } catch {}
+    vcam = null;
+  }
+}, 5000);
 const CAM_HTML = `<!doctype html><html lang=fr><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Caméra — SafeDesk</title>
 <style>:root{color-scheme:dark}*{box-sizing:border-box}
@@ -472,7 +481,23 @@ else navigator.mediaDevices.getUserMedia({video:{width:{ideal:1920},height:{idea
  st.textContent='Cadre, puis appuie sur le bouton.';
  var v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.srcObject=s;main.appendChild(v);
  var b=document.createElement('button');b.textContent='📸  Prendre la photo';main.appendChild(b);
- var busy=false;
+ // Caméra du bureau : streame ce flux vers la webcam virtuelle du bureau
+ // (v4l2loopback) — toutes les apps du bureau la voient comme une vraie camera.
+ var lb=document.createElement('button');lb.textContent='🎥  Caméra du bureau : OFF';lb.style.background='#14322d';lb.style.color='#7ef0dc';main.appendChild(lb);
+ var rec=null,feedQ=Promise.resolve();
+ lb.onclick=function(){
+  if(rec){try{rec.stop()}catch(e){}rec=null;fetch(base+'/cam/vcam/stop',{method:'POST',headers:hdrs()});lb.textContent='🎥  Caméra du bureau : OFF';lb.style.background='#14322d';return}
+  fetch(base+'/cam/vcam/start',{method:'POST',headers:hdrs()})
+  .then(function(r){if(!r.ok)return r.json().then(function(j){throw new Error(j.error||('HTTP '+r.status))});
+   var mime='video/webm;codecs=vp8';try{if(!MediaRecorder.isTypeSupported(mime))mime='video/webm'}catch(e){}
+   rec=new MediaRecorder(s,{mimeType:mime,videoBitsPerSecond:2500000});
+   rec.ondataavailable=function(e){if(!e.data||!e.data.size)return;
+    feedQ=feedQ.then(function(){return fetch(base+'/cam/vcam/feed',{method:'POST',headers:hdrs({'content-type':'application/octet-stream'}),body:e.data})}).catch(function(){})};
+   rec.start(250);
+   lb.textContent='🎥  Caméra du bureau : ON (en direct)';lb.style.background='#2dd4bf';lb.style.color='#0f1115';
+   st.textContent='Ta caméra est maintenant visible par les applications du bureau.';
+  }).catch(function(e){st.textContent='⚠ '+e.message});
+ };
  b.onclick=function(){
   if(busy)return;busy=true;b.textContent='…';
   var c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
@@ -699,6 +724,39 @@ const server = http.createServer(async (req, res) => {
   if ((u.pathname === '/voice/cam' || u.pathname === '/voice/cam/') && req.method === 'GET') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
     res.end(CAM_HTML); return;
+  }
+  // ---- caméra virtuelle LIVE (v4l2loopback) ---------------------------------
+  // La page pousse son flux MediaRecorder (webm) par petits POST successifs ;
+  // ffmpeg le décode en continu vers /dev/videoN → toutes les apps du bureau
+  // voient une vraie webcam. Un seul flux actif à la fois.
+  if (u.pathname === '/voice/cam/vcam/start' && req.method === 'POST') {
+    if (!bearerOk(req)) return send(res, 401, { error: 'unauthorized' });
+    if (!fs.existsSync(VCAM_DEV)) return send(res, 409, { error: `pas de caméra virtuelle (${VCAM_DEV} absent — conteneur sans v4l2loopback)` });
+    if (vcam) { try { vcam.proc.kill('SIGKILL'); } catch {} ; vcam = null; }
+    const proc = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0',
+      '-f', 'v4l2', '-pix_fmt', 'yuv420p', VCAM_DEV], { stdio: ['pipe', 'ignore', 'pipe'] });
+    proc.stderr.on('data', (d) => { const s = d.toString().trim(); if (s) console.error('[vcam]', s.slice(0, 200)); });
+    proc.stdin.on('error', () => {});
+    proc.on('exit', (c) => { console.error(`[vcam] ffmpeg exit ${c}`); if (vcam?.proc === proc) vcam = null; });
+    vcam = { proc, lastFeed: Date.now() };
+    return send(res, 200, { ok: true, device: VCAM_DEV });
+  }
+  if (u.pathname === '/voice/cam/vcam/feed' && req.method === 'POST') {
+    if (!bearerOk(req)) return send(res, 401, { error: 'unauthorized' });
+    if (!vcam) return send(res, 409, { error: 'flux non démarré' });
+    let chunk;
+    try { chunk = await readBodyBuffer(req); } catch (e) { return send(res, 413, { error: String(e.message || e) }); }
+    vcam.lastFeed = Date.now();
+    try { vcam.proc.stdin.write(chunk); } catch {}
+    return send(res, 200, { ok: true });
+  }
+  if (u.pathname === '/voice/cam/vcam/stop' && req.method === 'POST') {
+    if (!bearerOk(req)) return send(res, 401, { error: 'unauthorized' });
+    if (vcam) { try { vcam.proc.stdin.end(); vcam.proc.kill('SIGTERM'); } catch {} ; vcam = null; }
+    return send(res, 200, { ok: true });
+  }
+  if (u.pathname === '/voice/cam/vcam/status') {
+    return send(res, 200, { available: fs.existsSync(VCAM_DEV), active: !!vcam, device: VCAM_DEV });
   }
   // photo prise sur l'appareil distant → déposée dans le home du bureau
   if (u.pathname === '/voice/cam/upload' && req.method === 'POST') {

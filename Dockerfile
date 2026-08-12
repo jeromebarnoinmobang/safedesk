@@ -130,6 +130,9 @@ COPY files/custom-services.d/safedesk-voice /custom-services.d/safedesk-voice
 # Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
 # camera -> Images/Webcam du bureau)
 COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop
+# ffmpeg : decodeur du flux camera virtuelle (page /voice/cam -> v4l2loopback)
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 RUN chmod +x /usr/local/bin/safedesk-launcher
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome
