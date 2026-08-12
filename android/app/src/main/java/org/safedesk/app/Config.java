@@ -33,6 +33,13 @@ final class Config {
     static String profile(Context c) { return p(c).getString("profile", "standard"); }
     static boolean isSenior(Context c) { return "senior".equals(profile(c)); }
     static void setProfile(Context c, String v) { p(c).edit().putString("profile", v).apply(); }
+
+    // Forme d appareil : "phone" (accueil tuiles) ou "tablet" (surface TACTILE :
+    // l app demarre directement sur le bureau streame plein ecran — la tablette
+    // est une surface de l espace, pas une telecommande du PC).
+    static String form(Context c) { return p(c).getString("form", "phone"); }
+    static boolean isTablet(Context c) { return "tablet".equals(form(c)); }
+    static void setForm(Context c, String v) { p(c).edit().putString("form", v).apply(); }
     /** Empreinte SHA-256 (hex, sans ':') d un certificat auto-signe epingle. Vide sinon. */
     static String fp(Context c)   { return p(c).getString("fp", ""); }
 

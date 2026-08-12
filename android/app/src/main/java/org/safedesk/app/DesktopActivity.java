@@ -66,7 +66,12 @@ public class DesktopActivity extends AppCompatActivity {
         hp.gravity = Gravity.BOTTOM | Gravity.START;
         hp.setMargins(mg, mg, mg, mg);
         home.setLayoutParams(hp);
-        home.setOnClickListener(v -> finish());       // retour aux tuiles
+        // Retour aux tuiles. En mode tablette, le bureau est lance DIRECTEMENT
+        // (racine de la tache) : un finish() fermerait l app — on ouvre l accueil.
+        home.setOnClickListener(v -> {
+            if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class));
+            finish();
+        });
         root.addView(home);
 
         setContentView(root);

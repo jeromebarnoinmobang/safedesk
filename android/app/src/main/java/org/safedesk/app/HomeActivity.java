@@ -60,7 +60,10 @@ public class HomeActivity extends AppCompatActivity {
         col.addView(status);
 
         grid = new GridLayout(this);
-        grid.setColumnCount(2);   // toujours >= 2 colonnes (Confort garde de grandes tuiles)
+        // Colonnes adaptees a la largeur (tablette = 3-4), Confort plafonne a 3
+        // pour garder de grandes tuiles. Toujours >= 2.
+        int cols = Math.max(2, getResources().getConfiguration().screenWidthDp / 240);
+        grid.setColumnCount(Math.min(cols, senior ? 3 : 4));
         grid.setUseDefaultMargins(true);
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

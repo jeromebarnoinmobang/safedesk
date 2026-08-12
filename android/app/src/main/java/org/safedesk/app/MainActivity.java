@@ -120,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
         // Choix du mode d affichage a l installation (une seule fois), puis accueil.
         Class<?> next;
         if (!Config.hasProfile(this)) next = ProfileActivity.class;
+        else if (Config.isTablet(this)) next = DesktopActivity.class;   // surface tactile plein ecran
         else if (Config.isSenior(this)) next = WelcomeActivity.class;   // le bonhomme dit bonjour
         else next = HomeActivity.class;
         startActivity(new Intent(this, next));

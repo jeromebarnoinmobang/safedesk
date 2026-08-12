@@ -38,16 +38,28 @@ public class ProfileActivity extends AppCompatActivity {
         sub.setPadding(0, dp(8), 0, dp(28));
         col.addView(sub);
 
-        col.addView(card("\uD83D\uDC53  Confort", "Grands boutons, gros texte,\nune chose a la fois.",
-                "#14B8A6", "#0F1115", true, "senior"));
-        col.addView(card("\u25A6  Standard", "Grille classique, plus compacte.",
-                "#1A1F29", "#E8ECF3", false, "standard"));
+        // Ecran de tablette (>= 600dp) : la surface tactile est le choix naturel.
+        boolean bigScreen = getResources().getConfiguration().smallestScreenWidthDp >= 600;
+
+        if (bigScreen) {
+            col.addView(card("\uD83D\uDC46  Tablette tactile", "Ton espace en plein ecran,\ntout se fait au doigt.",
+                    "#14B8A6", "#0F1115", true, "standard", "tablet"));
+            col.addView(card("\uD83D\uDC53  Confort", "Grands boutons, gros texte,\nune chose a la fois.",
+                    "#1A1F29", "#E8ECF3", false, "senior", "phone"));
+            col.addView(card("\u25A6  Standard", "Accueil a tuiles classique.",
+                    "#1A1F29", "#E8ECF3", false, "standard", "phone"));
+        } else {
+            col.addView(card("\uD83D\uDC53  Confort", "Grands boutons, gros texte,\nune chose a la fois.",
+                    "#14B8A6", "#0F1115", true, "senior", "phone"));
+            col.addView(card("\u25A6  Standard", "Grille classique, plus compacte.",
+                    "#1A1F29", "#E8ECF3", false, "standard", "phone"));
+        }
 
         setContentView(col);
     }
 
     private LinearLayout card(String title, String desc, String bg, String fg,
-                              boolean recommended, String profile) {
+                              boolean recommended, String profile, String form) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setBackgroundColor(Color.parseColor(bg));
@@ -75,7 +87,9 @@ public class ProfileActivity extends AppCompatActivity {
 
         c.setOnClickListener(v -> {
             Config.setProfile(this, profile);
-            startActivity(new Intent(this, HomeActivity.class));
+            Config.setForm(this, form);
+            startActivity(new Intent(this,
+                    "tablet".equals(form) ? DesktopActivity.class : HomeActivity.class));
             finish();
         });
         return c;
