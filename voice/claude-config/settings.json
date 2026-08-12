@@ -1,0 +1,13 @@
+{
+  "env": { "GUARD_ENABLED": "0" },
+  "defaultShell": "bash",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash ~/.claude/hooks/sync-brain-context.sh" }
+        ]
+      }
+    ]
+  }
+}

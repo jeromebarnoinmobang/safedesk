@@ -1,5 +1,9 @@
 #!/usr/bin/with-contenv bash
-# webtop REGENERE sa conf nginx au demarrage : on injecte /safedesk/ apres coup.
+# webtop REGENERE sa conf nginx au demarrage : on injecte nos locations apres coup.
+# - /safedesk/ -> launcher local (tuiles accueil telephone)
+# - /voice/    -> sidecar assistant vocal (compose overlay docker-compose.voice.yml)
+#   Resolution DNS DIFFEREE (resolver Docker + variable) : nginx demarre et se
+#   recharge meme si le sidecar voice n'est pas deploye (seul /voice/ fait 502).
 CONF=/etc/nginx/sites-available/default
 for i in $(seq 1 60); do
   [ -f "$CONF" ] && grep -q "auth_basic_user_file" "$CONF" && break
@@ -13,6 +17,24 @@ if ! grep -q "location /safedesk/" "$CONF" 2>/dev/null; then
       print "  location /safedesk/ {"
       print "    proxy_pass http://127.0.0.1:3010/;"
       print "    proxy_read_timeout 30s;"
+      print "  }"
+    }
+  ' "$CONF" > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"
+fi
+if ! grep -q "location /voice/" "$CONF" 2>/dev/null; then
+  awk '
+    { print }
+    /auth_basic_user_file/ {
+      print "  location = /voice { return 302 /voice/; }"
+      print "  location /voice/ {"
+      print "    resolver 127.0.0.11 valid=30s ipv6=off;"
+      print "    set $sd_voice http://voice:8088;"
+      print "    proxy_pass $sd_voice;"
+      print "    proxy_http_version 1.1;"
+      print "    proxy_buffering off;"          # SSE : les deltas partent au fil de l eau
+      print "    proxy_request_buffering off;"
+      print "    proxy_read_timeout 300s;"      # tours longs (cerveau agit / cold start GPU)
+      print "    client_max_body_size 20m;"     # upload blob micro (webm/mp4)
       print "  }"
     }
   ' "$CONF" > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"

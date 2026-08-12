@@ -1,0 +1,49 @@
+# Assistant vocal SafeDesk (OPT-IN) — sidecar "voice" a cote du bureau.
+# Le nginx du bureau proxifie /voice/ vers voice:8088 (meme auth que le bureau).
+# Prerequis : cp voice/.env.example voice/.env puis remplir (cerveau + RunPod).
+#
+# Local : docker compose -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.voice.yml up -d --build
+# VPS   : docker compose -f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.voice.yml up -d --build
+#
+# Fallback voix locale (pocket-tts CPU, ~4 Go RAM) en plus :
+#   ... -f docker-compose.voice.yml --profile tts-fallback up -d --build
+services:
+  voice:
+    build:
+      context: ./voice
+      dockerfile: Dockerfile
+    image: mobang/safedesk-voice:latest
+    container_name: safedesk-voice
+    restart: unless-stopped
+    env_file: ./voice/.env
+    # Pas de port publie : seul le nginx du conteneur desktop y accede (reseau compose).
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8088/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Voix de secours locale (utilisee par le shim si RunPod TTS echoue).
+  # Voir voice/tts/Dockerfile — modele Kyutai pocket-tts, CPU, français.
+  voice-tts:
+    profiles: [tts-fallback]
+    build:
+      context: ./voice/tts
+      dockerfile: Dockerfile
+    image: mobang/safedesk-voice-tts:latest
+    container_name: safedesk-voice-tts
+    restart: unless-stopped
+    env_file: ./voice/.env # HUGGING_FACE_HUB_TOKEN (modele gated)
+    volumes:
+      - voice_tts_cache:/cache # poids HF persistes (pas de re-telechargement)
+    mem_limit: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 240s # 1er boot = download modele + chargement
+
+volumes:
+  voice_tts_cache:
