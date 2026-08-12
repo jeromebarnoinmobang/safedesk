@@ -7,6 +7,22 @@
 set -euo pipefail
 export DISPLAY="${DISPLAY:-:1}"
 
+# Config de deploiement optionnelle (home synchronise, hors repo) :
+#   SAFEDESK_FORGE_SSH    hote ssh qui a docker (forge DISTANTE complete)
+#   SAFEDESK_PUBLISH_PATH racine landing sur cet hote (defaut ci-dessous)
+#   SAFEDESK_PUBLISH_SSH  hote:/chemin (publication seule, forge LOCALE)
+[ -r "$HOME/.config/safedesk/qr.env" ] && . "$HOME/.config/safedesk/qr.env"
+
+# La session graphique (xrdp/KDE) n herite pas toujours des variables du
+# conteneur -> repli sur l environnement s6 (lisible par l utilisateur).
+for _v in SAFEDESK_URL DESKTOP_DOMAIN CUSTOM_USER PASSWORD SAFEDESK_NAME; do
+  eval "_cur=\${$_v:-}"
+  if [ -z "$_cur" ] && [ -r "/run/s6/container_environment/$_v" ]; then
+    eval "export $_v=\"\$(cat \"/run/s6/container_environment/$_v\")\""
+  fi
+done
+unset _v _cur
+
 err() { command -v kdialog >/dev/null && kdialog --error "$1" || echo "$1" >&2; exit 1; }
 command -v qrencode >/dev/null || err "qrencode absent de cette image"
 
@@ -34,15 +50,110 @@ DATA=$(printf %s "$JSON" | base64 -w0 | tr "+/" "-_" | tr -d "=")
 LINK="$URL/sd#$DATA"
 STATUS="QR simple (pas de publication : /landing absent)"
 
-# Cible de publication : /landing monte (deploiement remote nominal), sinon
-# SAFEDESK_PUBLISH_SSH="hote:/chemin/landing" (cle ssh en place) — utile quand
-# le mount /landing est casse ou sur un bureau local qui publie vers le VPS.
+# Cible de publication, par ordre de preference :
+#   local  : /landing monte ET forge locale (gradle) — deploiement nominal
+#   ssh    : forge locale, publication SAFEDESK_PUBLISH_SSH="hote:/chemin"
+#   remote : PAS de forge locale — tout se fait sur SAFEDESK_FORGE_SSH (docker) :
+#            build gradle conteneurise, config cuite, signature, publication.
+#            C est le mode d un bureau sans toolchain Android (image sans
+#            INSTALL_FORGE) : l icone reste pleinement fonctionnelle.
+HAS_FORGE=""; command -v gradle >/dev/null && HAS_FORGE=1
 PUB_MODE=""
-if [ -d /landing ] && [ -w /landing ]; then PUB_MODE=local
-elif [ -n "${SAFEDESK_PUBLISH_SSH:-}" ]; then PUB_MODE=ssh
+if [ -n "$HAS_FORGE" ] && [ -d /landing ] && [ -w /landing ]; then PUB_MODE=local
+elif [ -n "$HAS_FORGE" ] && [ -n "${SAFEDESK_PUBLISH_SSH:-}" ]; then PUB_MODE=ssh
+elif [ -n "${SAFEDESK_FORGE_SSH:-}" ]; then PUB_MODE=remote
 fi
 
-if [ -n "$PUB_MODE" ]; then
+if [ "$PUB_MODE" = remote ]; then
+  TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
+  LINK="$URL/sd/t/$TOKEN/#$DATA"
+  STATUS="application personnalisee en cours de forge distante (~1 min)..."
+  (
+    set +e
+    fail() { echo "[sd-pub] ECHEC: $1" >> /tmp/sd-pub.log; exit 0; }
+    : > /tmp/sd-pub.log
+    FH="$SAFEDESK_FORGE_SSH"
+    PUB="${SAFEDESK_PUBLISH_PATH:-/opt/mobang/safedesk/landing}"
+    SRC="$HOME/Projects/safedesk"
+    [ -d "$SRC/android" ] || fail "sources absentes ($SRC/android)"
+    [ -f "$HOME/.config/safedesk/keys/forge.jks" ] || fail "cle de signature absente"
+    ST=/tmp/sd-remote-forge; rm -rf "$ST"; mkdir -p "$ST"
+    tar czf "$ST/src.tgz" -C "$SRC" --exclude='*/build' --exclude='.gradle' android builder 2>>/tmp/sd-pub.log || fail "tar sources"
+    printf %s "$JSON" > "$ST/safedesk.json"; chmod 600 "$ST/safedesk.json"
+    cp -r "$HOME/.config/safedesk/keys" "$ST/keys" || fail "copie cle"
+    LINKHOST="${URL#*://}"; LINKHOST="${LINKHOST%%/*}"
+    # entete du script distant : valeurs substituees ICI
+    cat > "$ST/remote.sh" <<RHEAD
+TOKEN=$TOKEN
+PUB=$PUB
+NAME="$NAME"
+LINKHOST=$LINKHOST
+RHEAD
+    # corps du script distant : execute tel quel sur l hote de forge
+    cat >> "$ST/remote.sh" <<'RBODY'
+set -euo pipefail
+B=/tmp/sd-remote-forge
+IMG=safedesk/android-builder
+tar xzf $B/src.tgz -C $B
+docker image inspect $IMG >/dev/null 2>&1 || docker build -t $IMG $B/builder
+docker run --rm -v $B/android:/src -w /src -e SAFEDESK_LINK_HOST=$LINKHOST \
+  -v sd-gradle-cache:/root/.gradle $IMG gradle --console=plain -q assembleRelease
+APK=$(find $B/android -path "*outputs/apk*" -name "*.apk" | head -1)
+[ -n "$APK" ] || { echo "aucun APK produit"; exit 1; }
+mkdir -p $B/work/assets
+cp $B/safedesk.json $B/work/assets/safedesk.json
+cp "$APK" $B/work/app.apk
+docker run --rm -i -v $B:/b $IMG bash -s <<'INNER'
+set -e
+cd /b/work && jar uf app.apk assets/safedesk.json
+BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+PASS=$(cat /b/keys/.pass)
+$BT/zipalign -f -p 4 /b/work/app.apk /b/work/aligned.apk
+$BT/apksigner sign --ks /b/keys/forge.jks --ks-pass pass:$PASS --ks-key-alias safedesk \
+  --key-pass pass:$PASS --out /b/work/SafeDesk.apk /b/work/aligned.apk
+$BT/apksigner verify /b/work/SafeDesk.apk
+unzip -l /b/work/SafeDesk.apk | grep -q assets/safedesk.json || { echo "config absente de l APK"; exit 1; }
+keytool -list -v -keystore /b/keys/forge.jks -alias safedesk -storepass $PASS 2>/dev/null \
+  | sed -n "s/.*SHA256: //p" | head -1 > /b/work/cert-fp.txt
+INNER
+DEST=$PUB/sd/t/$TOKEN
+mkdir -p "$DEST"
+cp $B/work/SafeDesk.apk "$DEST/SafeDesk.apk"
+cat > "$DEST/index.html" <<PAGE
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>$NAME</title>
+<style>body{background:#0f1115;color:#e8ecf3;font-family:system-ui,sans-serif;margin:0;
+min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:28px;text-align:center}h1{font-size:24px;margin:0 0 8px}
+p{color:#8b94a7;max-width:420px;line-height:1.55;font-size:15px}
+a.btn{display:block;background:#2dd4bf;color:#0f1115;font-weight:700;font-size:17px;
+padding:16px 34px;border-radius:16px;text-decoration:none;margin:24px 0 10px}
+small{color:#5b6472}</style></head><body>
+<h1>$NAME</h1>
+<p>Ton espace est pret. Installe ton application personnelle :</p>
+<a class="btn" href="SafeDesk.apk">Installer mon application</a>
+<p>Puis <b>ouvre-la</b> : tu es deja chez toi.<br>Rien d autre a faire.</p>
+<small>Application preparee pour toi &mdash; ne partage pas ce lien.</small>
+</body></html>
+PAGE
+FP=$(cat $B/work/cert-fp.txt)
+mkdir -p $PUB/.well-known
+printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"org.safedesk.app","sha256_cert_fingerprints":["%s"]}}]' "$FP" \
+  > $PUB/.well-known/assetlinks.json
+ls -dt $PUB/sd/t/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
+# purge du staging (secrets inclus) PAR DOCKER : le build gradle laisse des
+# fichiers root dans le bind mount, un rm utilisateur echouerait dessus.
+docker run --rm -v $B:/b $IMG bash -c 'rm -rf /b/keys /b/safedesk.json /b/work /b/src.tgz /b/android /b/builder'
+echo "PUBLIE sd/t/$TOKEN"
+RBODY
+    scp -q -r "$ST" "$FH:/tmp/sd-remote-forge.new" >> /tmp/sd-pub.log 2>&1 || fail "scp staging"
+    # le staging precedent peut contenir des restes root (bind mount docker) :
+    # nettoyage via docker si possible, sinon rm simple (premier passage)
+    ssh -o BatchMode=yes "$FH" "docker run --rm -v /tmp:/t alpine rm -rf /t/sd-remote-forge 2>/dev/null || rm -rf /tmp/sd-remote-forge; mv /tmp/sd-remote-forge.new /tmp/sd-remote-forge && bash /tmp/sd-remote-forge/remote.sh" >> /tmp/sd-pub.log 2>&1 || fail "forge distante (voir /tmp/sd-pub.log)"
+    rm -rf "$ST"
+  ) &
+elif [ -n "$PUB_MODE" ]; then
   TOKEN=$(head -c 24 /dev/urandom | md5sum | cut -c1-20)
   DEST="/landing/sd/t/$TOKEN"
   [ "$PUB_MODE" = ssh ] && DEST="/tmp/sd-pub/stage/sd/t/$TOKEN"

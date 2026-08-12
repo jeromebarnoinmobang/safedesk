@@ -1,0 +1,13 @@
+#!/usr/bin/with-contenv bash
+# Assistant vocal SafeDesk (brain-shim) — service s6, supervise (relance auto).
+# ACTIVATION : creer /config/.config/safedesk/voice.env (voir voice/.env.example
+# du repo) — le home persiste, donc une recreation du conteneur garde la voix.
+# Sans ce fichier, le service attend sagement (aucune erreur).
+ENVF=/config/.config/safedesk/voice.env
+SHIM=/usr/local/bin/safedesk-voice-shim.mjs
+until [ -f "$ENVF" ]; do sleep 30; done
+set -a
+. "$ENVF"
+set +a
+export HOME=/config
+exec s6-setuidgid abc node "$SHIM"

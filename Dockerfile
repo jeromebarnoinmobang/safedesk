@@ -122,6 +122,11 @@ RUN chmod +x /usr/local/bin/safedesk-qr
 COPY files/usr/local/bin/safedesk-launcher /usr/local/bin/safedesk-launcher
 COPY files/custom-services.d/safedesk-launcher /custom-services.d/safedesk-launcher
 COPY files/custom-services.d/safedesk-nginx /custom-services.d/safedesk-nginx
+
+# Assistant vocal : shim (page /voice/ + STT/TTS RunPod + cerveau commutable) en
+# service s6 — actif seulement si /config/.config/safedesk/voice.env existe.
+COPY voice/brain-shim.mjs /usr/local/bin/safedesk-voice-shim.mjs
+COPY files/custom-services.d/safedesk-voice /custom-services.d/safedesk-voice
 RUN chmod +x /usr/local/bin/safedesk-launcher
 # Lanceur maison : fait heriter Chrome du profil de rendu detecte (/etc/chromium.d/zz-render)
 COPY files/usr/local/bin/wrapped-google-chrome /usr/local/bin/wrapped-google-chrome

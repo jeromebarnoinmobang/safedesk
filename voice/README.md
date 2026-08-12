@@ -33,23 +33,27 @@ cadrage « transcription non authentifiée » anti-injection.
 
 ## Activer
 
+Le shim tourne DANS le conteneur du bureau (service s6 `safedesk-voice`,
+supervisé, relancé automatiquement). Il démarre dès que sa config existe :
+
 ```bash
-cp voice/.env.example voice/.env   # puis remplir (cerveau + RunPod)
-docker compose -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.voice.yml up -d --build
+cp voice/.env.example /config/.config/safedesk/voice.env   # puis remplir
 ```
 
-La page vit sur `https://<ton-bureau>/voice/` — même auth que le bureau
-(le nginx du conteneur desktop proxifie vers le sidecar `voice`).
-`BRAIN_SHIM_TOKEN` n'est utile que si tu exposes le shim directement en public
-(la page l'envoie alors en `X-Voice-Token`, URL clé en main `/voice/#t=<token>`).
+Le home (`/config`) persiste : **une recréation du conteneur garde la voix**
+sans rien refaire. La page vit sur `https://<ton-bureau>/voice/` — même auth
+que le bureau (nginx proxifie vers le shim local :8088).
+`BRAIN_SHIM_TOKEN` (recommandé) : la page l'envoie en `X-Voice-Token`, URL clé
+en main `/voice/#t=<token>` ; la tuile « Assistant vocal » de l'app téléphone
+le reçoit cuite dans le QR (champ `voice`).
 
 ## Les morceaux
 
 | Fichier | Rôle |
 |---|---|
 | `brain-shim.mjs` | Le serveur : page `/voice/`, `/voice/chat` (+ façade OpenAI `/v1/chat/completions`), `/voice/stt` (blob micro → faster-whisper RunPod), `/voice/tts` (texte → Kyutai RunPod, fallback pocket-tts local), `/voice/warm` (préchauffage STT+TTS+LLM), `/health`. |
-| `Dockerfile` | Image du cerveau (node:22 + `@anthropic-ai/claude-code`). |
-| `../docker-compose.voice.yml` | Overlay compose : sidecar `voice` (+ `voice-tts` via `--profile tts-fallback`). |
+| `Dockerfile` | Image cerveau autonome (node:22 + CLI claude) — pour un déploiement hors bureau. |
+| `../files/custom-services.d/safedesk-voice` | Service s6 du conteneur bureau — actif si `/config/.config/safedesk/voice.env` existe. |
 | `claude-config/` | Settings + hook du cerveau claude (contexte second-brain optionnel). |
 | `tts/` | Image du fallback voix local (Kyutai pocket-tts, CPU, français). |
 
@@ -57,12 +61,12 @@ La page vit sur `https://<ton-bureau>/voice/` — même auth que le bureau
 
 ```bash
 # santé (type de cerveau, backends audio) :
-curl -s http://voice:8088/health
+curl -s http://127.0.0.1:8088/health
 # cerveau (streame du texte) :
-curl -N http://voice:8088/voice/chat -H "content-type: application/json" \
+curl -N http://127.0.0.1:8088/voice/chat -H "content-type: application/json" \
   -d '{"stream":true,"messages":[{"role":"user","content":"Bonjour !"}]}'
 # TTS :
-curl -s http://voice:8088/voice/tts -H "content-type: application/json" \
+curl -s http://127.0.0.1:8088/voice/tts -H "content-type: application/json" \
   -d '{"text":"Bonjour."}' -o out.wav
 ```
 (Depuis l'intérieur du bureau ; de l'extérieur, passe par `/voice/...` avec

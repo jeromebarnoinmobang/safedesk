@@ -22,14 +22,13 @@ if ! grep -q "location /safedesk/" "$CONF" 2>/dev/null; then
   ' "$CONF" > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"
 fi
 if ! grep -q "location /voice/" "$CONF" 2>/dev/null; then
+  # -> service s6 safedesk-voice (shim in-container sur 8088)
   awk '
     { print }
     /auth_basic_user_file/ {
       print "  location = /voice { return 302 /voice/; }"
       print "  location /voice/ {"
-      print "    resolver 127.0.0.11 valid=30s ipv6=off;"
-      print "    set $sd_voice http://voice:8088;"
-      print "    proxy_pass $sd_voice;"
+      print "    proxy_pass http://127.0.0.1:8088;"
       print "    proxy_http_version 1.1;"
       print "    proxy_buffering off;"          # SSE : les deltas partent au fil de l eau
       print "    proxy_request_buffering off;"
