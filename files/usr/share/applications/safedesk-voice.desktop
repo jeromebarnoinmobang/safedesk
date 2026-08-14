@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Assistant vocal
+GenericName=Parler avec l'assistant
+Comment=Parle avec ton assistant (second-brain) a la voix, directement depuis ce bureau - micro, transcription et reponse parlee
+Exec=safedesk-voice-ui
+Icon=audio-input-microphone
+Categories=Utility;AudioVideo;
+Terminal=false

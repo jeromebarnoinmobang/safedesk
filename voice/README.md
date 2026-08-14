@@ -42,7 +42,10 @@ cp voice/.env.example /config/.config/safedesk/voice.env   # puis remplir
 
 Le home (`/config`) persiste : **une recréation du conteneur garde la voix**
 sans rien refaire. La page vit sur `https://<ton-bureau>/voice/` — même auth
-que le bureau (nginx proxifie vers le shim local :8088).
+que le bureau (nginx proxifie vers le shim local :8088). **Dans le bureau
+Linux lui-même**, l'icône « Assistant vocal » (bureau + menu) ouvre cette page
+en fenêtre d'application dédiée, token pré-chargé (`safedesk-voice-ui`) — si
+la voix n'est pas configurée, elle affiche quoi faire au lieu d'une erreur.
 `BRAIN_SHIM_TOKEN` (recommandé) : la page l'envoie en `X-Voice-Token`, URL clé
 en main `/voice/#t=<token>` ; la tuile « Assistant vocal » de l'app téléphone
 le reçoit cuite dans le QR (champ `voice`).

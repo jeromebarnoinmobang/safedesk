@@ -1,7 +1,7 @@
 #!/usr/bin/with-contenv bash
 # Pose les icones SafeDesk sur le bureau de l utilisateur (une fois, idempotent).
 mkdir -p /config/Desktop
-for name in safedesk-qr; do
+for name in safedesk-qr safedesk-voice; do
   src="/usr/share/applications/$name.desktop"
   dst="/config/Desktop/$name.desktop"
   if [ -f "$src" ] && [ ! -f "$dst" ]; then

@@ -1,0 +1,41 @@
+#!/bin/bash
+# UI "Assistant vocal" DANS le bureau Linux : ouvre la page vocale du shim
+# local (:8088) en vraie fenetre d application Chrome (icone bureau + menu).
+# Le token BRAIN_SHIM_TOKEN est lu dans la config et passe en fragment #t=
+# (il ne quitte jamais le navigateur — meme chemin que le QR telephone).
+# Si le shim n est pas configure/pret, on affiche une page d aide locale au
+# lieu de laisser Chrome sur un "connexion refusee" incomprehensible.
+
+ENVF=/config/.config/safedesk/voice.env
+BASE="http://127.0.0.1:${BRAIN_SHIM_PORT:-8088}"
+
+if curl -sf -m 3 "$BASE/health" >/dev/null 2>&1; then
+  URL="$BASE/voice/"
+  if [ -r "$ENVF" ]; then
+    # sous-shell : on extrait le token sans polluer l environnement du bureau
+    TOKEN=$(set -a; . "$ENVF" >/dev/null 2>&1; printf %s "${BRAIN_SHIM_TOKEN:-}")
+    [ -n "$TOKEN" ] && URL="$URL#t=$TOKEN"
+  fi
+  exec wrapped-google-chrome --app="$URL"
+fi
+
+# ---- shim indisponible : page d aide autonome (aucune dependance zenity/yad) --
+HELP_DIR="$HOME/.cache/safedesk"
+HELP="$HELP_DIR/voice-aide.html"
+mkdir -p "$HELP_DIR"
+if [ -f "$ENVF" ]; then
+  RAISON="La configuration existe ($ENVF) mais le service vocal ne repond pas encore. Il demarre tout seul (verifie la config dans la minute) : referme cette fenetre et reessaie dans 30 secondes."
+else
+  RAISON="L assistant vocal n est pas encore active sur ce bureau. Pour l activer : copier voice/.env.example du depot SafeDesk vers $ENVF puis le remplir (cerveau, cles RunPod). Le service demarre tout seul des que le fichier existe — aucune recreation du conteneur necessaire."
+fi
+cat > "$HELP" <<EOF
+<!doctype html><html lang=fr><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>Assistant vocal — SafeDesk</title>
+<style>:root{color-scheme:dark}body{margin:0;font:17px/1.6 system-ui,sans-serif;background:#0f1115;color:#e6e6e6;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+h1{font-size:22px;color:#8aa0ff}p{max-width:560px;color:#9aa6bd;text-align:center;white-space:pre-wrap}
+code{background:#1c2230;border:1px solid #262b36;border-radius:6px;padding:2px 6px;color:#7ef0dc;overflow-wrap:anywhere}</style></head><body>
+<h1>&#127908; Assistant vocal pas encore pret</h1>
+<p>${RAISON}</p>
+</body></html>
+EOF
+exec wrapped-google-chrome --app="file://$HELP"

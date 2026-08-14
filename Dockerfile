@@ -130,6 +130,11 @@ COPY files/custom-services.d/safedesk-voice /custom-services.d/safedesk-voice
 # Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
 # camera -> Images/Webcam du bureau)
 COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop
+# Icone Assistant vocal : la page /voice/ du shim dans une fenetre d application
+# dediee (token pre-charge) — parler au second-brain DEPUIS le bureau Linux
+COPY files/usr/local/bin/safedesk-voice-ui /usr/local/bin/safedesk-voice-ui
+COPY files/usr/share/applications/safedesk-voice.desktop /usr/share/applications/safedesk-voice.desktop
+RUN chmod +x /usr/local/bin/safedesk-voice-ui
 # ffmpeg : decodeur du flux camera virtuelle (page /voice/cam -> v4l2loopback)
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
   && rm -rf /var/lib/apt/lists/*
