@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bash
+# Le home /config est replique par Syncthing. Sans exclusions, les profils
+# d'applications en cours d'execution (Claude Desktop, Chrome) sont ecrases par
+# l'autre machine : login perdu et fichiers .sync-conflict-* en cascade.
+# On repose donc les regles si elles ont disparu (home neuf ou volume recree).
+if [ ! -f /config/.stignore ] && [ -f /defaults/stignore ]; then
+    cp /defaults/stignore /config/.stignore
+    chown abc:abc /config/.stignore
+    echo "[safedesk] regles d exclusion Syncthing installees dans /config/.stignore"
+fi

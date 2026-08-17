@@ -18,6 +18,8 @@ services:
       # repo s applique a la recreation du conteneur, sans rebuild de l image.
       - ./files/custom-cont-init.d/safedesk-audio-setup:/custom-cont-init.d/safedesk-audio-setup:ro
       - ./files/custom-services.d/safedesk-rdp-audio:/custom-services.d/safedesk-rdp-audio:ro
+      - ./files/custom-cont-init.d/safedesk-sync-ignores:/custom-cont-init.d/safedesk-sync-ignores:ro
+      - ./files/config-defaults/stignore:/defaults/stignore:ro
   home-sync:
     ports:
       - "127.0.0.1:8384:8384"     # GUI/API Syncthing (local dials out vers le VPS)
