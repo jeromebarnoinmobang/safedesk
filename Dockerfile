@@ -151,8 +151,9 @@ COPY files/usr/local/bin/safedesk-claude-desktop /usr/local/bin/safedesk-claude-
 COPY files/config-defaults/stignore /defaults/stignore
 COPY files/custom-cont-init.d/safedesk-sync-ignores /custom-cont-init.d/safedesk-sync-ignores
 # Claude Desktop (si installe) : handler claude:// (retour login OAuth) + lanceur unique.
-# Le lanceur ne force AUCUN --password-store : la cle des cookies vit dans le trousseau de
-# la session KDE. En forcer un autre ouvre un coffre vide -> ecran "Sign In" (incident 17/08/2026).
+# Le lanceur force --password-store=basic : la cle des cookies vit alors DANS LE PROFIL.
+# Via kwalletd elle dependrait de la session X, or le bureau en a deux (:1 web, :10 xrdp) —
+# changer d'ecran regenererait la cle et deconnecterait (verifie le 17/08/2026).
 RUN set -eux; \
     if [ "$INSTALL_CLAUDE" = "true" ]; then \
       apt-get update; \

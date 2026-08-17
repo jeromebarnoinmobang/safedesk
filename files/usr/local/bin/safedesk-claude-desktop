@@ -1,10 +1,13 @@
 #!/bin/bash
 # SafeDesk — lanceur UNIQUE de Claude Desktop. Deux garanties :
 #
-# 1) UN SEUL TROUSSEAU. Ne jamais forcer --password-store : la cle qui chiffre les
-#    cookies vit dans le trousseau de la session KDE (kwalletd). Forcer "basic" ouvre
-#    un autre coffre -> cookies illisibles -> ecran "Sign In" a chaque alternance
-#    entre l'icone du menu et le lancement automatique.
+# 1) UN TROUSSEAU INDEPENDANT DE LA SESSION. --password-store=basic garde la cle qui
+#    chiffre les cookies DANS LE PROFIL. Sans ce drapeau, Electron passe par kwalletd,
+#    or CHAQUE session X a son propre kwalletd (:1 bureau web, :10 xrdp) : passer d'un
+#    ecran a l'autre regenere la cle et rend les cookies illisibles -> ecran "Sign In".
+#    Verifie le 17/08/2026 : bascule d'ecran sous kwallet = session perdue.
+#    Corollaire : TOUS les chemins de lancement doivent passer par ce fichier
+#    (icone du menu ET demarrage automatique), sinon l'alternance recasse le login.
 #
 # 2) LA FENETRE SUIT L'ECRAN. Le bureau expose deux serveurs X (:1 = bureau web
 #    selkies, :10 = session xrdp). Electron est en instance unique : un clic depuis
@@ -58,4 +61,4 @@ if [ -n "$CUR" ]; then
   printf '%s\n' "$CUR" > "$OWNER" 2>/dev/null || true
 fi
 
-exec "$BIN" "$@"
+exec "$BIN" --password-store=basic "$@"
