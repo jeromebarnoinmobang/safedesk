@@ -10,8 +10,8 @@ services:
       # Le bureau devient bien plus reactif qu'en mode paint-over JPEG par defaut.
       SELKIES_ENCODER: "x264enc"
       SELKIES_H264_STREAMING_MODE: "true"
-      SELKIES_FRAMERATE: "60"
-      SELKIES_VIDEO_BITRATE: "30"
+      SELKIES_FRAMERATE: "30"
+      SELKIES_VIDEO_BITRATE: "6"
       SELKIES_H264_FULLCOLOR: "true"
     volumes:
       # Scripts audio montes PAR-DESSUS leurs copies cuites dans l image : une modif du

@@ -1,0 +1,14 @@
+#!/bin/bash
+# Verifie le chemin COMPLET tel que le telephone le voit : DNS -> VPS -> Traefik ->
+# tunnel -> nginx du bureau. Un 401 (authentification demandee) prouve que la chaine
+# entiere repond ; c'est le meilleur signal possible sans divulguer d'identifiants.
+#
+# Pourquoi cote maison et pas cote VPS : c'est la maison qui ouvre le tunnel, donc
+# elle seule peut le relancer. systemd peut afficher "active" alors que la session SSH
+# est morte (port reste occupe cote serveur) : seul un test de bout en bout le voit.
+code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://desktop.mobang.fr/ || echo 000)
+case "$code" in
+  401|200) exit 0 ;;
+esac
+logger -t safedesk-tunnel "chemin KO (code=$code) -> redemarrage du tunnel"
+systemctl restart safedesk-tunnel.service

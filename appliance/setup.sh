@@ -129,6 +129,24 @@ EOF
 systemctl daemon-reload
 systemctl enable safedesk-stack.service
 
+echo "== [8b] Tunnel du bureau vers le VPS (desktop.mobang.fr) =="
+# La maison APPELLE le VPS : aucun port ouvert sur la box, aucune IP fixe requise.
+# Prerequis manuel une seule fois : la cle publique /root/.ssh/id_safedesk_tunnel.pub
+# doit etre autorisee sur le VPS avec restrict,port-forwarding,permitlisten="172.18.0.1:8443",
+# et le VPS doit avoir GatewayPorts clientspecified (voir docs/tunnel.md).
+if [ ! -f /root/.ssh/id_safedesk_tunnel ]; then
+  install -d -m0700 /root/.ssh
+  ssh-keygen -t ed25519 -N "" -C safedesk-tunnel -f /root/.ssh/id_safedesk_tunnel -q
+  echo "  -> cle creee : autorise-la sur le VPS avant de continuer"
+  cat /root/.ssh/id_safedesk_tunnel.pub
+fi
+install -m0755 $APP_DIR/appliance/safedesk-tunnel-check /usr/local/bin/safedesk-tunnel-check
+install -m0644 $APP_DIR/appliance/safedesk-tunnel.service /etc/systemd/system/
+install -m0644 $APP_DIR/appliance/safedesk-tunnel-check.service /etc/systemd/system/
+install -m0644 $APP_DIR/appliance/safedesk-tunnel-check.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable safedesk-tunnel.service safedesk-tunnel-check.timer
+
 echo "== [9/9] Kiosque : X + xfreerdp plein ecran, reconnexion auto =="
 cat > /home/$KUSER/.bash_profile <<'EOF'
 if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
@@ -140,10 +158,12 @@ cat > /home/$KUSER/.xinitrc <<'EOF'
 xset s off -dpms; xset s noblank
 openbox &
 : # curseur visible (pas d unclutter)
-. /etc/safedesk/kiosk.env
 FRDP="$(command -v xfreerdp3 || command -v xfreerdp)"
 # resolution FIXE (pas de /dynamic-resolution : ca casse le socket audio cote serveur)
 while true; do
+  # relu a CHAQUE tentative : une rotation du mot de passe du bureau ne doit pas
+  # condamner l ecran physique jusqu au prochain redemarrage (incident 17/08/2026)
+  . /etc/safedesk/kiosk.env
   "$FRDP" /v:"$RDP_HOST" /u:"$RDP_USER" /p:"$RDP_PASSWORD" /multimon \
     /sound:sys:pulse /microphone:sys:pulse +clipboard /gfx:rfx \
     -grab-keyboard /cert:ignore /log-level:WARN >/tmp/frdp.log 2>&1

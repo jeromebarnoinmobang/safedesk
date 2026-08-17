@@ -1,0 +1,5 @@
+[Unit]
+Description=SafeDesk — verification de bout en bout du tunnel du bureau
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/safedesk-tunnel-check
