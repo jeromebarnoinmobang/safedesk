@@ -68,7 +68,7 @@ function synth(text) {
 const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true, engine: 'pico2wave', lang: LANG }));
+    return res.end(JSON.stringify({ ok: true, engine: hasPiper ? "piper" : "pico2wave", lang: LANG }));
   }
   if (req.method === 'POST' && req.url === '/tts') {
     try {
