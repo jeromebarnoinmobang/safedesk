@@ -433,7 +433,11 @@ function brainReady() {
     if (RELAY_URL && !RELAY_HUB_TOKEN) return 'relay: VOICE_RELAY_URL posé sans VOICE_RELAY_TOKEN (le hub répondra 503)';
     return null;
   }
-  return process.env.CLAUDE_CODE_OAUTH_TOKEN ? null : 'claude: CLAUDE_CODE_OAUTH_TOKEN manquant';
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) return null;
+  // Accepte aussi le login machine interactif (~/.claude/.credentials.json) : le
+  // CLI claude s'authentifie avec, pas seulement avec le token d'env.
+  try { if (fs.existsSync(`${process.env.HOME || ''}/.claude/.credentials.json`)) return null; } catch {}
+  return 'claude: connexion requise (CLAUDE_CODE_OAUTH_TOKEN ou ~/.claude/.credentials.json)';
 }
 
 // ---- page caméra : capture sur l'appareil qui A la caméra, photo déposée ----
