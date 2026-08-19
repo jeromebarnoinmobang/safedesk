@@ -4,6 +4,7 @@
 # sortant — rien d'ouvert sur la box. Deux ports remontent au VPS :
 #   14980 -> front OpenWork local (14880)      [openwork.mobang.fr]
 #   14977 -> serveur openwork local (14877)    [openwork-api.mobang.fr]
+#   14989 -> page vocale cerveau-claude (8089)  [voice.mobang.fr] — micro DU TELEPHONE
 # Traefik les joint via la passerelle docker (172.18.0.1), routes déclarées dans
 # /opt/mobang/traefik/dynamic/openwork.yml.
 # Usage : ./openwork-tunnel.sh          (boucle supervisée, relance auto)
@@ -21,6 +22,7 @@ while true; do
       -o ExitOnForwardFailure=yes -N \
       -R '0.0.0.0:14980:127.0.0.1:14880' \
       -R '0.0.0.0:14977:127.0.0.1:14877' \
+      -R '0.0.0.0:14989:127.0.0.1:8089' \
       mobang-prod
   echo "[openwork-tunnel] coupé — reconnexion dans 5s"
   sleep 5

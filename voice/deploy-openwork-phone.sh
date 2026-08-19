@@ -37,11 +37,22 @@ http:
       middlewares: [security-headers@file]
       service: openwork-api
       tls: { certResolver: letsencrypt }
+    openwork-voice:
+      # Page vocale (cerveau claude) — ouverte DANS le navigateur du telephone :
+      # getUserMedia prend le micro DU TELEPHONE, TTS joue dans son haut-parleur.
+      # https://voice.mobang.fr/voice  (login du bureau)
+      rule: "Host(\`voice.mobang.fr\`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers@file, openwork-auth@file]
+      service: openwork-voice
+      tls: { certResolver: letsencrypt }
   services:
     openwork-front:
       loadBalancer: { passHostHeader: true, servers: [{ url: "http://172.18.0.1:14980" }] }
     openwork-api:
       loadBalancer: { passHostHeader: true, servers: [{ url: "http://172.18.0.1:14977" }] }
+    openwork-voice:
+      loadBalancer: { passHostHeader: true, servers: [{ url: "http://172.18.0.1:14989" }] }
 EOF
 echo "   route écrite (traefik la recharge tout seul)."
 
