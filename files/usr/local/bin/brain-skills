@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""brain-skills — les skills vivent dans le SECOND-BRAIN, pas sur une machine.
+
+Principe (doctrine SafeDesk) : la connaissance vit dans le brain, les appareils
+ne sont que des fenêtres. Un skill publié ici est immédiatement lisible par
+TOUT agent connecté au second-brain (Claude Code, OpenWork/Qwen, Cowork,
+Claude Desktop) via list_memories(type="skill") / get_memory.
+
+    brain-skills list                 les skills du brain
+    brain-skills push <dossier>       publie un SKILL.md local dans le brain
+    brain-skills pull [nom]           matérialise le(s) skill(s) en local
+    brain-skills show <nom>           affiche un skill
+
+Le local (~/.claude/skills/) n'est qu'un CACHE : il donne l'invocation native
+/<nom> à Claude Code. La source de vérité reste le brain.
+
+Transport : pont REST du brain (POST /api/tool/<outil>), donc utilisable depuis
+n'importe quel script, sans client MCP.
+"""
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+
+BASE = os.environ.get("SECOND_BRAIN_URL", "https://second-brain.mobang.fr")
+SKILLS_DIR = os.path.expanduser("~/.claude/skills")
+
+
+def token() -> str:
+    """Jeton du brain : env d'abord, sinon la config Claude Desktop (source unique)."""
+    tok = os.environ.get("SECOND_BRAIN_MCP_TOKEN", "").replace("Bearer ", "").strip()
+    if tok:
+        return tok
+    cfg = os.path.expanduser("~/.config/Claude/claude_desktop_config.json")
+    try:
+        servers = json.load(open(cfg))["mcpServers"]
+        entry = servers.get("second-brain") or servers.get("secondbrain")
+        args = entry["args"]
+        header = args[args.index("--header") + 1]
+        return header.split("Bearer", 1)[1].strip()
+    except Exception as exc:
+        sys.exit(f"jeton du brain introuvable ({exc}) — pose SECOND_BRAIN_MCP_TOKEN")
+
+
+def call(tool: str, payload: dict) -> dict:
+    req = urllib.request.Request(
+        f"{BASE}/api/tool/{tool}",
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {token()}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.load(resp)
+    except urllib.error.HTTPError as exc:
+        sys.exit(f"brain: {tool} -> HTTP {exc.code} {exc.read()[:200].decode(errors='replace')}")
+    except Exception as exc:
+        sys.exit(f"brain injoignable ({BASE}) : {exc}")
+    if not body.get("ok", True):
+        sys.exit(f"brain: {tool} -> {body}")
+    return body.get("data", body)
+
+
+def parse_frontmatter(text: str) -> dict:
+    """name/description du frontmatter d'un SKILL.md (parsing volontairement naïf)."""
+    if not text.startswith("---"):
+        return {}
+    end = text.find("\n---", 3)
+    if end < 0:
+        return {}
+    fields = {}
+    for line in text[3:end].splitlines():
+        m = re.match(r"^([a-zA-Z_-]+)\s*:\s*(.*)$", line.strip())
+        if m:
+            fields[m.group(1)] = m.group(2).strip().strip('"').strip("'")
+    return fields
+
+
+def skills() -> list:
+    data = call("list_memories", {"type": "skill", "limit": 100})
+    return data.get("memories", data if isinstance(data, list) else [])
+
+
+def find(name: str):
+    for mem in skills():
+        if (mem.get("metadata") or {}).get("skill_name") == name:
+            return mem
+    return None
+
+
+def cmd_list():
+    found = skills()
+    if not found:
+        print("aucun skill dans le brain — publie le premier : brain-skills push <dossier>")
+        return
+    print(f"{len(found)} skill(s) dans le brain :\n")
+    for mem in found:
+        meta = mem.get("metadata") or {}
+        print(f"  {meta.get('skill_name', '?'):<22} {meta.get('description', mem.get('title', ''))[:80]}")
+
+
+def cmd_push(path: str):
+    src = os.path.join(path, "SKILL.md") if os.path.isdir(path) else path
+    if not os.path.isfile(src):
+        sys.exit(f"introuvable : {src}")
+    body = open(src, encoding="utf-8").read()
+    front = parse_frontmatter(body)
+    name = front.get("name") or os.path.basename(os.path.dirname(os.path.abspath(src)))
+    desc = front.get("description", "")
+    if not name:
+        sys.exit("le skill n'a pas de 'name' dans son frontmatter")
+
+    # Les fichiers annexes (references/) voyagent avec le skill, en clair.
+    root = os.path.dirname(os.path.abspath(src))
+    annexes = []
+    for cur, _dirs, files in os.walk(root):
+        for f in sorted(files):
+            full = os.path.join(cur, f)
+            rel = os.path.relpath(full, root)
+            if rel == "SKILL.md" or os.path.getsize(full) > 200_000:
+                continue
+            annexes.append(f"\n\n=== FICHIER ANNEXE : {rel} ===\n" + open(full, encoding="utf-8", errors="replace").read())
+
+    payload = {
+        "type": "skill",
+        "title": f"skill: {name} — {desc[:120]}",
+        "content": body + "".join(annexes),
+        "metadata": {"skill_name": name, "description": desc, "files": len(annexes) + 1},
+    }
+    existing = find(name)
+    if existing:
+        call("update_memory", dict(payload, id=existing["id"]))
+        print(f"↻ skill '{name}' mis à jour dans le brain ({len(annexes)+1} fichier(s))")
+    else:
+        call("create_memory", payload)
+        print(f"✚ skill '{name}' publié dans le brain ({len(annexes)+1} fichier(s))")
+    print("   → disponible pour TOUS les brains connectés au second-brain")
+
+
+def cmd_pull(name: str = None):
+    targets = [m for m in skills() if not name or (m.get("metadata") or {}).get("skill_name") == name]
+    if not targets:
+        sys.exit(f"aucun skill{' nommé ' + name if name else ''} dans le brain")
+    for mem in targets:
+        meta = mem.get("metadata") or {}
+        skill_name = meta.get("skill_name")
+        content = mem.get("content", "")
+        # on ne matérialise que le SKILL.md ; les annexes restent lisibles dans le brain
+        main = content.split("\n\n=== FICHIER ANNEXE :")[0]
+        dest = os.path.join(SKILLS_DIR, skill_name)
+        os.makedirs(dest, exist_ok=True)
+        with open(os.path.join(dest, "SKILL.md"), "w", encoding="utf-8") as fh:
+            fh.write(main)
+        print(f"↓ {skill_name} → {dest}/SKILL.md")
+    print("\nCache local rafraîchi (la source de vérité reste le brain).")
+
+
+def cmd_show(name: str):
+    mem = find(name)
+    if not mem:
+        sys.exit(f"skill '{name}' absent du brain")
+    print(mem.get("content", ""))
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    cmd, rest = args[0], args[1:]
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "push" and rest:
+        cmd_push(rest[0])
+    elif cmd == "pull":
+        cmd_pull(rest[0] if rest else None)
+    elif cmd == "show" and rest:
+        cmd_show(rest[0])
+    else:
+        sys.exit(f"commande inconnue : {' '.join(args)}\n{__doc__}")
+
+
+if __name__ == "__main__":
+    main()
