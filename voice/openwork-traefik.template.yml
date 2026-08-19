@@ -7,8 +7,12 @@ http:
   middlewares:
     openwork-auth:
       basicAuth:
-        users:
-          - "UTILISATEUR:HASH_APR1_A_INJECTER"
+        usersFile: "/etc/traefik/dynamic/openwork.htpasswd"
+        # Le hash ne vit PAS dans ce YAML (traefik n interpole pas les variables
+        # d env dans la conf dynamique) : il est dans un fichier a part, monte
+        # avec le dossier dynamic/ et exclu de git (*.htpasswd).
+        # Le creer : printf '%s:%s
+' "$USER" "$(printf %s "$PASS" | openssl passwd -apr1 -stdin)" > openwork.htpasswd && chmod 600
   routers:
     openwork-front:
       rule: "Host(`openwork.mobang.fr`)"
