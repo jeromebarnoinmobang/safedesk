@@ -40,13 +40,28 @@ function clean(t) {
   return t.replace(/[*_`#>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000);
 }
 
+// Piper (qualité) d'abord, pico2wave (robotique) en ultime secours.
+const PIPER_BIN = process.env.PIPER_BIN || `${os.homedir()}/.local/piper/piper/piper`;
+const PIPER_MODEL = process.env.PIPER_MODEL || `${os.homedir()}/.local/piper/fr_FR-siwis-medium.onnx`;
+const hasPiper = fs.existsSync(PIPER_BIN) && fs.existsSync(PIPER_MODEL);
+
 function synth(text) {
   return new Promise((resolve, reject) => {
-    const wav = `${os.tmpdir()}/pico-${process.pid}-${Date.now()}.wav`;
-    execFile('pico2wave', ['-l', LANG, '-w', wav, text], (err) => {
+    const wav = `${os.tmpdir()}/tts-${process.pid}-${Date.now()}.wav`;
+    const done = (err) => {
       if (err) return reject(err);
       fs.readFile(wav, (e, data) => { try { fs.unlinkSync(wav); } catch {} ; e ? reject(e) : resolve(data); });
-    });
+    };
+    if (hasPiper) {
+      const p = execFile(PIPER_BIN, ['--model', PIPER_MODEL, '--output_file', wav], (err) => {
+        if (!err) return done();
+        // piper a échoué → repli pico
+        execFile('pico2wave', ['-l', LANG, '-w', wav, text], done);
+      });
+      p.stdin.end(text);
+    } else {
+      execFile('pico2wave', ['-l', LANG, '-w', wav, text], done);
+    }
   });
 }
 
