@@ -20,6 +20,18 @@ http:
       service: openwork-front-failover
       tls:
         certResolver: letsencrypt
+    openwork-voice-samorigin:
+      # /voice/* sur le domaine du front : STT/TTS depuis l'UI OpenWork sans
+      # CORS (même origine). Règle plus longue → priorité auto sur la route front.
+      rule: "Host(`openwork.mobang.fr`) && PathPrefix(`/voice/`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers@file
+        - openwork-auth@file
+      service: openwork-voice-failover
+      tls:
+        certResolver: letsencrypt
     openwork-api:
       rule: "Host(`openwork-api.mobang.fr`)"
       entryPoints:
