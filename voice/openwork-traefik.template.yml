@@ -1,0 +1,97 @@
+# OpenWork — paire local/jumeau avec failover automatique (19/08/2026).
+# Local (PC fixe, tunnel SSH inverse) prefere pour la latence ; PC eteint ->
+# bascule sur le jumeau VPS (mobang-desktop, meme home synchronise).
+# NB : local et jumeau ont des bases de sessions DIFFERENTES (repos exclus du
+# sync) — la bascule change la liste de sessions visibles, c'est assume.
+http:
+  middlewares:
+    openwork-auth:
+      basicAuth:
+        users:
+          - "UTILISATEUR:HASH_APR1_A_INJECTER"
+  routers:
+    openwork-front:
+      rule: "Host(`openwork.mobang.fr`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers@file
+        - openwork-auth@file
+      service: openwork-front-failover
+      tls:
+        certResolver: letsencrypt
+    openwork-api:
+      rule: "Host(`openwork-api.mobang.fr`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers@file
+      service: openwork-api-failover
+      tls:
+        certResolver: letsencrypt
+    openwork-voice:
+      rule: "Host(`voice.mobang.fr`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers@file
+        - openwork-auth@file
+      service: openwork-voice-failover
+      tls:
+        certResolver: letsencrypt
+  services:
+    openwork-front-failover:
+      failover:
+        service: openwork-front-local
+        fallback: openwork-front-cloud
+    openwork-api-failover:
+      failover:
+        service: openwork-api-local
+        fallback: openwork-api-cloud
+    openwork-voice-failover:
+      failover:
+        service: openwork-voice-local
+        fallback: openwork-voice-cloud
+    openwork-front-local:
+      loadBalancer:
+        passHostHeader: true
+        healthCheck:
+          path: /
+          hostname: openwork.mobang.fr
+          interval: 10s
+          timeout: 4s
+        servers:
+          - url: "http://172.18.0.1:14980"
+    openwork-api-local:
+      loadBalancer:
+        passHostHeader: true
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 4s
+        servers:
+          - url: "http://172.18.0.1:14977"
+    openwork-voice-local:
+      loadBalancer:
+        passHostHeader: true
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 4s
+        servers:
+          - url: "http://172.18.0.1:14989"
+    openwork-front-cloud:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://mobang-desktop:14880"
+    openwork-api-cloud:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://mobang-desktop:14877"
+    openwork-voice-cloud:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://mobang-desktop:8089"
