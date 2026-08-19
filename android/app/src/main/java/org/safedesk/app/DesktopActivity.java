@@ -97,8 +97,8 @@ public class DesktopActivity extends AppCompatActivity {
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
                     String host = android.net.Uri.parse(Config.url(DesktopActivity.this)).getHost();
-                    if (request.getOrigin() == null || host == null
-                            || !host.equals(request.getOrigin().getHost())) {
+                    String origin = request.getOrigin() == null ? null : request.getOrigin().getHost();
+                    if (origin == null || host == null || !sameBaseDomain(host, origin)) {
                         request.deny();
                         return;
                     }
@@ -135,7 +135,8 @@ public class DesktopActivity extends AppCompatActivity {
             @Override
             public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler,
                                                   String host, String realm) {
-                if (authTries++ < 8) {
+                String cfgHost = android.net.Uri.parse(Config.url(DesktopActivity.this)).getHost();
+                if (authTries++ < 8 && cfgHost != null && sameBaseDomain(cfgHost, host)) {
                     handler.proceed(Config.user(DesktopActivity.this),
                                     Config.pass(DesktopActivity.this));
                 } else {
@@ -162,8 +163,12 @@ public class DesktopActivity extends AppCompatActivity {
         });
 
         hideBars();
+        String abs = getIntent().getStringExtra("url");
         String path = getIntent().getStringExtra("path");
-        web.loadUrl(Config.url(this) + (path == null ? "" : path));
+        // "url" (absolue, https) = page servie hors du bureau streame (OpenWork,
+        // assistant vocal) mais ouverte dans CETTE webview : micro et auth du device.
+        if (abs != null && abs.startsWith("https://")) web.loadUrl(abs);
+        else web.loadUrl(Config.url(this) + (path == null ? "" : path));
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { finish(); }  // retour a l accueil a tuiles
@@ -227,5 +232,13 @@ public class DesktopActivity extends AppCompatActivity {
     protected void onDestroy() {
         if (web != null) web.destroy();
         super.onDestroy();
+    }
+
+    /** meme domaine enregistrable (desktop.mobang.fr ~ voice.mobang.fr) :
+     *  les credentials et le micro ne sortent jamais du domaine du bureau. */
+    private static boolean sameBaseDomain(String a, String b) {
+        String[] pa = a.split("\\."), pb = b.split("\\.");
+        if (pa.length < 2 || pb.length < 2) return a.equals(b);
+        return pa[pa.length-1].equals(pb[pb.length-1]) && pa[pa.length-2].equals(pb[pb.length-2]);
     }
 }

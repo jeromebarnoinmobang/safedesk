@@ -113,7 +113,10 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         if u.path == "/apps":
-            self._json(200, {k: {"label": v["label"], "icon": v.get("icon", "")}
+            # "url" (optionnel) = tuile qui s ouvre SUR L APPAREIL (webview de
+            # l app telephone/tablette) au lieu de lancer une fenetre sur le PC.
+            self._json(200, {k: {"label": v["label"], "icon": v.get("icon", ""),
+                                 **({"url": v["url"]} if isinstance(v.get("url"), str) else {})}
                              for k, v in apps().items()})
             return
         if u.path == "/run":

@@ -37,7 +37,7 @@ public class HomeActivity extends AppCompatActivity {
     private boolean senior;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    static class Tile { String id, label, icon; Tile(String i,String l,String c){id=i;label=l;icon=c;} }
+    static class Tile { String id, label, icon, url; Tile(String i,String l,String c,String u){id=i;label=l;icon=c;url=u;} }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -84,7 +84,7 @@ public class HomeActivity extends AppCompatActivity {
                 for (Iterator<String> it = o.keys(); it.hasNext(); ) {
                     String k = it.next();
                     JSONObject a = o.getJSONObject(k);
-                    tiles.add(new Tile(k, a.optString("label", k), a.optString("icon", "\u2699\uFE0F")));
+                    tiles.add(new Tile(k, a.optString("label", k), a.optString("icon", "\u2699\uFE0F"), a.optString("url", "")));
                 }
             } catch (Exception ignored) {}
             ui.post(() -> {
@@ -100,7 +100,15 @@ public class HomeActivity extends AppCompatActivity {
         grid.removeAllViews();
         for (Tile t : tiles) {
             TextView tv = tileView(t.icon, t.label, "#1A1F29", "#E8ECF3");
-            tv.setOnClickListener(v -> runApp(t));
+            tv.setOnClickListener(v -> {
+                if (t.url != null && t.url.startsWith("https://")) {
+                    // tuile-URL : la page s ouvre SUR L APPAREIL (webview),
+                    // pas sur le PC — micro/ecran de CE device.
+                    Intent i = new Intent(this, DesktopActivity.class);
+                    i.putExtra("url", t.url);
+                    startActivity(i);
+                } else runApp(t);
+            });
             grid.addView(tv);
         }
         // Tuile assistant vocal : la page /voice/ du bureau (micro + voix),
