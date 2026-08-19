@@ -56,6 +56,11 @@ http:
 EOF
 echo "   route écrite (traefik la recharge tout seul)."
 
+echo "1bis/3 — pare-feu VPS : autoriser traefik (conteneur) vers les ports du tunnel…"
+# Sans ces règles UFW, l'hôte joint le tunnel mais PAS les conteneurs -> 504
+# gateway timeout côté téléphone (le précédent 8443/safedesk-home a la sienne).
+ssh -o BatchMode=yes mobang-prod "for port in 14980 14977 14989; do sudo -n ufw allow from 172.18.0.0/16 to 172.18.0.1 port \$port proto tcp comment 'openwork tunnel -> traefik' >/dev/null 2>&1; done; sudo -n ufw status | grep -c 'openwork tunnel'"
+
 echo "2/3 — tunnel SSH inverse (supervisé)…"
 "$DIR/openwork-tunnel.sh" stop >/dev/null 2>&1 || true
 setsid "$DIR/openwork-tunnel.sh" > /tmp/openwork-tunnel.log 2>&1 &
