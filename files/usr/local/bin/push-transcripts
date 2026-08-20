@@ -1,0 +1,109 @@
+#!/bin/bash
+# push-transcripts — pousse les transcripts Claude Code de CETTE machine vers le VPS,
+# pour que l'auditeur (claude -p dans un conteneur du VPS) puisse les lire.
+#
+# Idempotence PAR CONSTRUCTION : les .jsonl de Claude Code sont en append pur, donc
+# la TAILLE du fichier distant est le filigrane. On n'envoie que les octets au-delà.
+# Relancé sans nouvelle activité, il transfère zéro octet et ne réécrit rien.
+#
+# Pourquoi ni Syncthing ni rsync : le dossier Syncthing `claude-projects` du VPS est
+# mort depuis le 2026-06-08 et ne couvrait que le PC Windows ; et rsync n'est pas
+# installé sur cette machine. Ici : coreutils + ssh, rien d'autre.
+#
+# Usage : push-transcripts [--dry-run]
+set -u
+
+HOST=${TRANSCRIPT_HOST:-mobang-prod}
+SRC=${TRANSCRIPT_SRC:-/config/.claude/projects}
+DEST=${TRANSCRIPT_DEST:-/opt/mobang/fleet-data/desktop-linux}
+DRY=0
+[ "${1:-}" = "--dry-run" ] && DRY=1
+
+# Multiplexage : une seule poignée de main TCP/SSH réutilisée par tous les fichiers.
+# Sans ça, 105 transcripts = 105 connexions = ~2 min de négociation pour rien.
+CM=(-o ControlMaster=auto -o "ControlPath=${TMPDIR:-/tmp}/.push-transcripts-%r@%h:%p" -o ControlPersist=120)
+SSH=(ssh -o ConnectTimeout=10 -o BatchMode=yes "${CM[@]}")
+
+[ -d "$SRC" ] || { echo "source absente : $SRC" >&2; exit 1; }
+
+# 1. Tailles distantes en UN seul aller-retour (sinon N ssh pour N fichiers).
+remote_sizes=$(timeout 60 "${SSH[@]}" "$HOST" \
+  "mkdir -p '$DEST' && cd '$DEST' && find . -name '*.jsonl' -printf '%s %P\n' 2>/dev/null") || {
+  echo "VPS injoignable ($HOST)" >&2; exit 2; }
+
+declare -A distant
+while read -r taille chemin; do
+  [ -n "${chemin:-}" ] && distant["$chemin"]=$taille
+done <<< "$remote_sizes"
+
+# 2. Pour chaque transcript local, n'envoyer que la queue manquante.
+envoyes=0 octets=0 sautes=0 rembobines=0 echecs=0
+while IFS= read -r f; do
+  rel=${f#"$SRC"/}
+  locale_taille=$(stat -c%s "$f" 2>/dev/null) || continue
+  deja=${distant["$rel"]:-0}
+
+  if [ "$deja" -eq "$locale_taille" ]; then
+    sautes=$((sautes + 1)); continue
+  fi
+
+  # Le distant est plus gros que le local : le fichier a été tronqué/remplacé côté
+  # local (compaction d'historique, machine réinstallée). On ne devine pas : on
+  # signale et on ne touche à rien, pour ne jamais corrompre l'historique distant.
+  if [ "$deja" -gt "$locale_taille" ]; then
+    echo "  !! distant plus gros que local, ignoré : $rel ($deja > $locale_taille)"
+    rembobines=$((rembobines + 1)); continue
+  fi
+
+  delta=$((locale_taille - deja))
+  # Le dossier distant est calculé ICI, en bash : les dossiers de projet de Claude
+  # Code commencent par un tiret ("-config-Projects-..."), et un `dirname` distant
+  # les prendrait pour des options (« dirname: invalid option -- 't' »).
+  reldir=${rel%/*}
+  [ "$reldir" = "$rel" ] && reldir="."
+
+  if [ "$DRY" -eq 1 ]; then
+    echo "  → $rel (+$delta octets)"
+  else
+    if tail -c "+$((deja + 1))" "$f" | timeout 300 "${SSH[@]}" "$HOST" \
+        "mkdir -p '$DEST/$reldir' && cat >> '$DEST/$rel'"; then
+      echo "  → $rel (+$delta octets)"
+    else
+      echo "  !! échec d'envoi : $rel" >&2; echecs=$((echecs + 1)); continue
+    fi
+  fi
+  envoyes=$((envoyes + 1)); octets=$((octets + delta))
+done < <(find "$SRC" -name '*.jsonl' -type f | sort)
+
+echo "transcripts: $envoyes envoyé(s), $octets octet(s), $sautes déjà à jour, $rembobines ignoré(s), $echecs échec(s)"
+[ "$DRY" -eq 1 ] && exit 0
+
+# --------------------------------------------------------- le verdict, sur le VPS
+# Le sync se PROUVE lui-même au lieu de laisser deviner. On re-mesure les tailles
+# distantes après l'envoi et on publie le RETARD résiduel en octets. « retard = 0 »
+# est une preuve ; une date de fichier récente n'en est pas une (elle ne distingue
+# pas « rien à envoyer » de « plus rien ne part »).
+apres=$(timeout 60 "${SSH[@]}" "$HOST" \
+  "cd '$DEST' && find . -name '*.jsonl' -printf '%s %P\n' 2>/dev/null") || apres=""
+declare -A distant2
+while read -r t c; do [ -n "${c:-}" ] && distant2["$c"]=$t; done <<< "$apres"
+
+retard=0 en_retard=0 total=0
+while IFS= read -r f; do
+  rel=${f#"$SRC"/}
+  l=$(stat -c%s "$f" 2>/dev/null) || continue
+  total=$((total + 1))
+  d=${distant2["$rel"]:-0}
+  if [ "$d" -lt "$l" ]; then retard=$((retard + l - d)); en_retard=$((en_retard + 1)); fi
+done < <(find "$SRC" -name '*.jsonl' -type f)
+
+# Fichier TEXTE lisible à l'œil (première ligne = la date, comme demandé) et
+# parsable par la sonde. Un léger retard est NORMAL : la session en cours grossit
+# pendant l'envoi. C'est la sonde qui juge le seuil, ce script ne fait que mesurer.
+# `dernier_sync_epoch` est la reference pour la sonde : une date formatee est
+# ambigue entre deux machines de fuseaux differents (constate : « il y a -1h »).
+# La ligne lisible reste, pour l oeil humain.
+printf 'dernier_sync=%s\ndernier_sync_epoch=%s\nmachine=%s\nfichiers=%d\nenvoyes=%d\noctets=%d\nechecs=%d\nretard_octets=%d\nfichiers_en_retard=%d\n' \
+  "$(date '+%Y-%m-%d %H:%M:%S %z')" "$(date +%s)" "$(hostname)" "$total" "$envoyes" "$octets" "$echecs" "$retard" "$en_retard" \
+  | timeout 30 "${SSH[@]}" "$HOST" "cat > '$DEST/DERNIER-SYNC.txt'" \
+  && echo "verdict publié : retard ${retard} octet(s) sur $en_retard fichier(s), $echecs échec(s)"

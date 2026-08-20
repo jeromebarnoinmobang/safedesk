@@ -1,0 +1,107 @@
+#!/bin/bash
+# watch-vps — surveillance CROISÉE : cette machine vérifie que la sonde du VPS est
+# encore vivante, et prévient Jérôme elle-même si ce n'est plus le cas.
+#
+# Pourquoi ça existe : la sonde du VPS surveille tout, sauf elle-même. Si le VPS
+# tombe (ou si la sonde meurt), plus aucune alerte ne part et le silence ressemble
+# à « tout va bien ». Le battement de cœur hebdomadaire ne suffit pas : il demande
+# à Jérôme de REMARQUER une absence de mail, ce qui est exactement ce qu'on ne doit
+# pas lui demander (cécité temporelle).
+#
+# Donc chacun surveille l'autre :
+#   · le VPS surveille cette machine (fraîcheur du verdict de sync + tunnel)
+#   · cette machine surveille le VPS (fraîcheur du journal de la sonde)
+# Et l'envoi de mail passe DIRECTEMENT par Gmail depuis ici, sans dépendre du VPS —
+# sinon la panne qu'on veut signaler empêcherait de la signaler.
+#
+# Angle mort assumé : si cette machine ET le VPS sont morts en même temps, personne
+# ne parle. Irréductible sans un tiers extérieur.
+set -u
+
+ENV_FILE=${ALERTE_ENV:-/config/.config/safedesk/alerte.env}
+HOST=${TRANSCRIPT_HOST:-mobang-prod}
+JOURNAL_DISTANT=/opt/mobang/scripts/.sonde-journal
+ETAT=${WATCH_ETAT:-/config/.local/state/safedesk/watch-vps.etat}
+SEUIL_MIN=${WATCH_SEUIL_MIN:-60}          # la sonde tourne toutes les 15 min
+DRY=0
+[ "${1:-}" = "--dry-run" ] && DRY=1
+
+[ -f "$ENV_FILE" ] || { echo "identifiants d'alerte absents : $ENV_FILE" >&2; exit 1; }
+# shellcheck disable=SC1090
+g(){ grep -m1 "^$1=" "$ENV_FILE" | cut -d= -f2- ; }
+SMTP_HOST=$(g ALERTE_SMTP_HOST); SMTP_PORT=$(g ALERTE_SMTP_PORT)
+SMTP_USER=$(g ALERTE_SMTP_USER); SMTP_PASS=$(g ALERTE_SMTP_PASS)
+DEST=$(g ALERTE_TO)
+
+mkdir -p "$(dirname "$ETAT")"
+MAINTENANT=$(date +%s)
+
+envoie() {
+  local sujet=$1 corps=$2
+  if [ "$DRY" -eq 1 ]; then
+    printf -- '--- MAIL (a blanc) ---\nSujet: %s\n%s\n----------------------\n' "$sujet" "$corps"; return 0
+  fi
+  local url="smtps://$SMTP_HOST:${SMTP_PORT:-465}"
+  [ "${SMTP_PORT:-465}" = "587" ] && url="smtp://$SMTP_HOST:587"
+  printf 'From: Sonde SafeDesk <%s>\nTo: %s\nSubject: %s\nContent-Type: text/plain; charset=UTF-8\n\n%s\n' \
+    "$SMTP_USER" "$DEST" "$sujet" "$corps" \
+  | curl -sS --ssl-reqd --max-time 45 --url "$url" --user "$SMTP_USER:$SMTP_PASS" \
+      --mail-from "$SMTP_USER" --mail-rcpt "$DEST" --upload-file -
+}
+
+# --- diagnostic : le VPS répond-il, et sa sonde tourne-t-elle encore ? ---------
+derniere=$(timeout 30 ssh -o ConnectTimeout=10 -o BatchMode=yes "$HOST" \
+  "tail -1 '$JOURNAL_DISTANT' 2>/dev/null | cut -d'|' -f1" 2>/dev/null)
+joignable=$?
+
+if [ "$joignable" -ne 0 ]; then
+  cur=KO; motif="le VPS ne répond pas (ssh injoignable depuis $(hostname))"
+elif [ -z "${derniere// }" ]; then
+  cur=KO; motif="le VPS répond mais la sonde n'a aucun journal — elle n'a jamais tourné"
+else
+  ts=$(date -d "$(echo "$derniere" | sed 's/[[:space:]]*$//')" +%s 2>/dev/null || echo 0)
+  age_min=$(( ts > 0 ? (MAINTENANT - ts) / 60 : 99999 ))
+  [ "$age_min" -lt 0 ] && age_min=0
+  if [ "$age_min" -ge "$SEUIL_MIN" ]; then
+    cur=KO; motif="la sonde du VPS n'a rien écrit depuis ${age_min} min (elle devrait tourner toutes les 15 min)"
+  else
+    cur=OK; motif="sonde du VPS active (dernier passage il y a ${age_min} min)"
+  fi
+fi
+
+# --- même politique anti-spam que la sonde ------------------------------------
+# État : ETAT:dernier_mail_epoch:nb_constats_consecutifs
+anc=$(cut -d: -f1 "$ETAT" 2>/dev/null)
+dernier_mail=$(cut -d: -f2 "$ETAT" 2>/dev/null)
+nb=$(cut -d: -f3 "$ETAT" 2>/dev/null)
+case "${dernier_mail:-}" in ''|*[!0-9]*) dernier_mail=0 ;; esac
+case "${nb:-}" in ''|*[!0-9]*) nb=0 ;; esac
+RAPPEL_S=${WATCH_RAPPEL_S:-86400}
+
+# ANTI-BATTEMENT : un ssh qui hoquette ne doit pas déclencher une alerte. Deux
+# constats consécutifs exigés avant le premier mail (donc ~20 min de retard,
+# contre un risque de faux positif quasi nul).
+if [ "$cur" = "OK" ]; then nb=0; else nb=$((nb + 1)); fi
+if [ "$cur" = "KO" ] && [ "$nb" -lt 2 ] && [ "$anc" != "KO" ]; then
+  [ "$DRY" -eq 0 ] && printf '%s:%s:%s\n' "$cur" "$dernier_mail" "$nb" > "$ETAT"
+  echo "[$cur] $motif — 1er constat, on observe avant d'alerter"
+  exit 0
+fi
+
+if [ "$cur" = "KO" ]; then
+  if [ "$anc" != "KO" ] || [ $((MAINTENANT - dernier_mail)) -ge "$RAPPEL_S" ]; then
+    envoie "[SafeDesk] LA SURVEILLANCE EST AVEUGLE" \
+"$(printf 'Alerte emise par %s le %s (PAS par le VPS — c est justement le probleme).\n\n%s\n\nCONSEQUENCE : plus aucune alerte ne peut partir du VPS. Tout peut etre casse sans que rien ne te previenne, jusqu a ce que ce soit repare.\n\nA VERIFIER :\n  1. le VPS repond-il ?   ssh mobang-prod\n  2. la crontab est-elle la ?   ssh mobang-prod crontab -l\n  3. essai a la main :   ssh mobang-prod bash /opt/mobang/scripts/sonde.sh --dry-run' \
+  "$(hostname)" "$(date '+%Y-%m-%d %H:%M')" "$motif")"
+    dernier_mail=$MAINTENANT
+  fi
+else
+  if [ "$anc" = "KO" ]; then
+    envoie "[SafeDesk] surveillance rétablie" \
+      "$(printf 'Emis par %s le %s.\n\n%s\n\nLes alertes du VPS peuvent repartir.' "$(hostname)" "$(date '+%Y-%m-%d %H:%M')" "$motif")"
+  fi
+  dernier_mail=0
+fi
+
+[ "$DRY" -eq 0 ] && printf '%s:%s:%s\n' "$cur" "$dernier_mail" "$nb" > "$ETAT"
+echo "[$cur] $motif"

@@ -1,0 +1,95 @@
+#!/usr/bin/with-contenv bash
+# SafeDesk — gardes deterministes de la memoire de Jerome.
+#
+# Doctrine : la connaissance vit dans le SECOND-BRAIN, les appareils ne sont que
+# des fenetres. Claude Code possede une memoire LOCALE par projet
+# (/config/.claude/projects/*/memory/) : tout ce qui y est ecrit est invisible
+# pour les autres brains (Claude Desktop, OpenWork, Cowork, orchestrator-brain).
+#
+# Constat du 20/08/2026 : une regle de travail donnee par Jerome le 17/08
+# (« moins de preuve ») etait restee 3 jours dans cette memoire locale, absente
+# du second-brain. Une consigne ne suffit pas : elle depend de l initiative du
+# modele. On installe donc DEUX gardes complementaires — Jerome a pointe qu une
+# interdiction seule se contourne par omission :
+#
+#   1. no-local-memory.sh        (PreToolUse)  INTERDICTION : refuse l ecriture
+#                                              dans une memoire locale.
+#   2. capitalisation-obligatoire.py (Stop)    OBLIGATION : refuse la FIN DU TOUR
+#                                              si Jerome a enonce une regle et que
+#                                              rien n a ete ecrit dans le brain.
+#
+# Idempotent : rejouable a chaque boot sans dupliquer les entrees de settings.json.
+
+SRC=/usr/local/share/safedesk/claude-hooks
+HOOKS=/config/.claude/hooks
+SETTINGS=/config/.claude/settings.json
+QUARANTINE=/config/.claude/memoire-a-rapatrier
+
+if [ ! -d "$SRC" ]; then
+  echo "[brain-memory-guard] $SRC absent — gardes NON installees"
+  exit 0
+fi
+
+mkdir -p "$HOOKS"
+cp -f "$SRC/no-local-memory.sh" "$SRC/capitalisation-obligatoire.py" "$HOOKS/"
+chmod +x "$HOOKS/no-local-memory.sh" "$HOOKS/capitalisation-obligatoire.py"
+
+# Enregistrement dans settings.json en PRESERVANT l existant : une fusion, jamais
+# un remplacement (un settings.json casse desactive silencieusement tout le reste).
+python3 - <<'PY'
+import json, os
+
+path = "/config/.claude/settings.json"
+attendus = [
+    ("PreToolUse", "Write|Edit|NotebookEdit",
+     "/config/.claude/hooks/no-local-memory.sh", 10, "Garde memoire second-brain"),
+    ("Stop", None,
+     "/config/.claude/hooks/capitalisation-obligatoire.py", 15, "Capitalisation second-brain"),
+]
+
+settings = {}
+if os.path.exists(path):
+    try:
+        with open(path) as fh:
+            settings = json.load(fh)
+    except Exception:
+        # settings.json illisible : ne pas l ecraser, abandonner bruyamment.
+        raise SystemExit("settings.json illisible — gardes NON enregistrees")
+
+change = False
+for event, matcher, cmd, timeout, label in attendus:
+    hook = {"type": "command", "command": cmd, "timeout": timeout, "statusMessage": label}
+    entries = settings.setdefault("hooks", {}).setdefault(event, [])
+    entry = next((e for e in entries if e.get("matcher") == matcher), None)
+    if entry is None:
+        nouvelle = {"hooks": [hook]}
+        if matcher:
+            nouvelle = {"matcher": matcher, "hooks": [hook]}
+        entries.append(nouvelle)
+        change = True
+    elif not any(h.get("command") == cmd for h in entry.setdefault("hooks", [])):
+        entry["hooks"].append(hook)
+        change = True
+
+if change:
+    with open(path, "w") as fh:
+        json.dump(settings, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+PY
+
+chown -R abc:abc "$HOOKS" 2>/dev/null
+[ -f "$SETTINGS" ] && chown abc:abc "$SETTINGS" 2>/dev/null
+
+# Fuites anterieures aux gardes : on ne SUPPRIME pas (ce serait perdre un savoir
+# jamais rapatrie), on met en quarantaine visible pour rapatriement manuel.
+strays=$(find /config/.claude/projects -path '*/memory/*' -type f 2>/dev/null)
+if [ -n "$strays" ]; then
+  mkdir -p "$QUARANTINE"
+  printf '%s\n' "$strays" | while read -r f; do
+    [ -f "$f" ] || continue
+    projet=$(basename "$(dirname "$(dirname "$f")")")
+    mv "$f" "$QUARANTINE/$projet-$(basename "$f")" 2>/dev/null
+  done
+  chown -R abc:abc "$QUARANTINE" 2>/dev/null
+  echo "[brain-memory-guard] memoires locales mises en quarantaine dans $QUARANTINE — a rapatrier dans le second-brain"
+fi

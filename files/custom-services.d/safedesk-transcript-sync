@@ -1,0 +1,55 @@
+#!/usr/bin/with-contenv bash
+# SafeDesk — remontée cyclique des transcripts Claude Code vers le VPS.
+#
+# À quoi ça sert : l'auditeur de mémoire tourne sur le VPS (claude -p dans un
+# conteneur, sur l'abonnement de Jérôme) et ne peut lire que des fichiers présents
+# LÀ-BAS. Les transcripts, eux, naissent ici. Ce service est le seul tuyau.
+#
+# Pourquoi pas Syncthing : le dossier `claude-projects` du VPS est mort depuis le
+# 2026-06-08 et ne couvrait que le PC Windows. Pourquoi pas rsync : absent de cette
+# image. Ici, `push-transcripts` n'utilise que coreutils + ssh, et son idempotence
+# vient de la structure du fichier (les .jsonl sont en append pur, donc la taille
+# du fichier distant EST le filigrane).
+#
+# Une panne de ce service est VISIBLE : la sonde du VPS surveille la fraîcheur des
+# transcripts reçus et envoie un mail si plus rien n'arrive depuis 26 h.
+
+INTERVAL=${TRANSCRIPT_SYNC_INTERVAL:-600}      # 10 min par défaut
+LOG=/config/.local/state/safedesk/transcript-sync.log
+
+BIN=/usr/local/bin/push-transcripts
+[ -x "$BIN" ] || BIN=/config/.local/bin/push-transcripts   # repli : conteneur déjà en place
+
+mkdir -p "$(dirname "$LOG")"
+chown -R abc:abc /config/.local/state/safedesk 2>/dev/null
+
+if [ ! -x "$BIN" ]; then
+  echo "[transcript-sync] push-transcripts introuvable — service inactif"
+  sleep infinity
+fi
+
+# Laisser le réseau et l'agent ssh se poser avant le premier essai.
+sleep 30
+
+WATCH=/usr/local/bin/watch-vps
+[ -x "$WATCH" ] || WATCH=/config/.local/bin/watch-vps
+
+while true; do
+  {
+    echo "--- $(date '+%Y-%m-%d %H:%M:%S')"
+    s6-setuidgid abc env HOME=/config "$BIN" 2>&1
+    # Surveillance CROISÉE : on vérifie que la sonde du VPS est encore vivante.
+    # Sans ça, la mort du VPS serait silencieuse — c'est le seul angle mort que
+    # la sonde ne peut pas couvrir elle-même.
+    [ -x "$WATCH" ] && s6-setuidgid abc env HOME=/config "$WATCH" 2>&1
+  } >> "$LOG"
+
+  # Rotation naïve : on garde la queue, un log de surveillance n'a pas besoin
+  # d'histoire longue (et il ne doit jamais remplir le volume).
+  if [ "$(stat -c%s "$LOG" 2>/dev/null || echo 0)" -gt 2000000 ]; then
+    tail -c 400000 "$LOG" > "$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"
+    chown abc:abc "$LOG" 2>/dev/null
+  fi
+
+  sleep "$INTERVAL"
+done

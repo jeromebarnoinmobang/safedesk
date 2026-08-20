@@ -15,3 +15,7 @@ landing/sd/SafeDesk.apk
 landing/.well-known/
 android/**/build/
 dist/
+
+# temporaires et conflits Syncthing
+.syncthing.*
+*.sync-conflict-*

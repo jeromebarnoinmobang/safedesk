@@ -127,6 +127,22 @@ COPY files/custom-services.d/safedesk-nginx /custom-services.d/safedesk-nginx
 # service s6 — actif seulement si /config/.config/safedesk/voice.env existe.
 COPY voice/brain-shim.mjs /usr/local/bin/safedesk-voice-shim.mjs
 COPY files/custom-services.d/safedesk-voice /custom-services.d/safedesk-voice
+
+# --- Memoire : la connaissance vit dans le second-brain, jamais sur la machine ---
+# 1. Gardes deterministes de Claude Code : interdiction d ecrire dans la memoire
+#    LOCALE (invisible aux autres brains) et obligation de capitaliser avant de
+#    conclure un tour. Enregistrees dans settings.json par le script d init.
+COPY files/usr/local/share/safedesk/claude-hooks/ /usr/local/share/safedesk/claude-hooks/
+COPY files/custom-cont-init.d/safedesk-brain-memory-guard /custom-cont-init.d/safedesk-brain-memory-guard
+# 2. Remontee des transcripts vers le VPS : l auditeur de memoire tourne la-bas
+#    (claude -p sur abonnement) et ne peut lire que des fichiers presents la-bas.
+COPY files/usr/local/bin/push-transcripts /usr/local/bin/push-transcripts
+COPY files/usr/local/bin/watch-vps /usr/local/bin/watch-vps
+COPY files/custom-services.d/safedesk-transcript-sync /custom-services.d/safedesk-transcript-sync
+RUN chmod +x /usr/local/share/safedesk/claude-hooks/* \
+             /custom-cont-init.d/safedesk-brain-memory-guard \
+             /usr/local/bin/push-transcripts /usr/local/bin/watch-vps \
+             /custom-services.d/safedesk-transcript-sync
 # Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
 # camera -> Images/Webcam du bureau)
 COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop
