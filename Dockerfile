@@ -161,7 +161,15 @@ RUN set -eux; \
 # --- SafeDesk : correctifs finaux (en fin de Dockerfile pour PRESERVER le cache des couches lourdes) ---
 # Audio : sinks output/input captes par Selkies (sinon PulseAudio => auto_null => aucun son)
 RUN printf '\n### SafeDesk audio (sinks captes par Selkies)\nload-module module-null-sink sink_name=output sink_properties=device.description=output rate=48000 channels=2\nload-module module-null-sink sink_name=input sink_properties=device.description=input rate=44100 channels=2\nset-default-sink output\nset-default-source output.monitor\n' >> /etc/pulse/default.pa
-# Claude Desktop (si installe) : handler claude:// (retour login OAuth) + lancement sans trousseau
+COPY files/usr/local/bin/safedesk-claude-desktop /usr/local/bin/safedesk-claude-desktop
+# Home replique par Syncthing : les profils d'applications en cours d'execution ne doivent
+# JAMAIS etre synchronises (login ecrase et fichiers .sync-conflict-* en cascade).
+COPY files/config-defaults/stignore /defaults/stignore
+COPY files/custom-cont-init.d/safedesk-sync-ignores /custom-cont-init.d/safedesk-sync-ignores
+# Claude Desktop (si installe) : handler claude:// (retour login OAuth) + lanceur unique.
+# Le lanceur force --password-store=basic : la cle des cookies vit alors DANS LE PROFIL.
+# Via kwalletd elle dependrait de la session X, or le bureau en a deux (:1 web, :10 xrdp) —
+# changer d'ecran regenererait la cle et deconnecterait (verifie le 17/08/2026).
 RUN set -eux; \
     if [ "$INSTALL_CLAUDE" = "true" ]; then \
       apt-get update; \
@@ -170,7 +178,7 @@ RUN set -eux; \
       update-desktop-database /usr/share/applications || true; \
       if [ -e /usr/bin/claude-desktop ]; then \
         rm -f /usr/bin/claude-desktop; \
-        printf '#!/bin/bash\nexec /usr/lib/claude-desktop/claude-desktop --password-store=basic "$@"\n' > /usr/bin/claude-desktop; \
+        cp /usr/local/bin/safedesk-claude-desktop /usr/bin/claude-desktop; \
         chmod +x /usr/bin/claude-desktop; \
       fi; \
     fi

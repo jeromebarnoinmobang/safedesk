@@ -1,0 +1,64 @@
+#!/bin/bash
+# SafeDesk — lanceur UNIQUE de Claude Desktop. Deux garanties :
+#
+# 1) UN TROUSSEAU INDEPENDANT DE LA SESSION. --password-store=basic garde la cle qui
+#    chiffre les cookies DANS LE PROFIL. Sans ce drapeau, Electron passe par kwalletd,
+#    or CHAQUE session X a son propre kwalletd (:1 bureau web, :10 xrdp) : passer d'un
+#    ecran a l'autre regenere la cle et rend les cookies illisibles -> ecran "Sign In".
+#    Verifie le 17/08/2026 : bascule d'ecran sous kwallet = session perdue.
+#    Corollaire : TOUS les chemins de lancement doivent passer par ce fichier
+#    (icone du menu ET demarrage automatique), sinon l'alternance recasse le login.
+#
+# 2) LA FENETRE SUIT L'ECRAN. Le bureau expose deux serveurs X (:1 = bureau web
+#    selkies, :10 = session xrdp). Electron est en instance unique : un clic depuis
+#    l'ecran B reveille l'instance de l'ecran A, dont la fenetre reste invisible ici.
+#    On ferme donc l'instance de l'autre ecran avant de relancer sur celui-ci.
+
+set -u
+
+BIN=/usr/lib/claude-desktop/claude-desktop
+PROFILE="${HOME:-/config}/.config/Claude"
+OWNER="${PROFILE}/.safedesk-display"
+CUR="${DISPLAY:-}"
+
+# PID de l'instance vivante, lu depuis le verrou d'instance unique (hostname-pid)
+running_pid() {
+  local link pid
+  link=$(readlink "${PROFILE}/SingletonLock" 2>/dev/null) || return 1
+  pid=${link##*-}
+  case "$pid" in (*[!0-9]*|'') return 1 ;; esac
+  kill -0 "$pid" 2>/dev/null || return 1
+  printf '%s' "$pid"
+}
+
+# ":10.0" et ":10" designent le meme ecran
+norm() { printf '%s' "${1%%.*}"; }
+
+pid=$(running_pid) || pid=""
+
+# Lancement automatique au demarrage : ne jamais voler la fenetre d'une instance
+# deja ouverte par l'utilisateur sur un autre ecran.
+for a in "$@"; do
+  if [ "$a" = "--startup" ] && [ -n "$pid" ]; then
+    exit 0
+  fi
+done
+
+if [ -n "$pid" ] && [ -n "$CUR" ]; then
+  prev=$(cat "$OWNER" 2>/dev/null || true)
+  if [ -n "$prev" ] && [ "$(norm "$prev")" != "$(norm "$CUR")" ]; then
+    kill -TERM "$pid" 2>/dev/null || true
+    i=0
+    while [ $i -lt 20 ] && kill -0 "$pid" 2>/dev/null; do sleep 1; i=$((i+1)); done
+    kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
+    rm -f "${PROFILE}/SingletonLock" "${PROFILE}/SingletonSocket" "${PROFILE}/SingletonCookie"
+    sleep 1
+  fi
+fi
+
+if [ -n "$CUR" ]; then
+  mkdir -p "$PROFILE" 2>/dev/null || true
+  printf '%s\n' "$CUR" > "$OWNER" 2>/dev/null || true
+fi
+
+exec "$BIN" --password-store=basic "$@"

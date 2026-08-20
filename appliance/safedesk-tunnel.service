@@ -1,0 +1,28 @@
+[Unit]
+Description=SafeDesk — tunnel inverse du bureau vers le VPS (desktop.mobang.fr)
+Documentation=https://github.com/jeromebarnoinmobang/safedesk
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# La maison APPELLE le VPS : rien a ouvrir sur la box, aucune IP fixe requise.
+# -R 172.18.0.1:8443 = la passerelle du reseau docker "second-brain" du VPS, seule
+#    adresse que Traefik (en conteneur) sait joindre. Autorisee par permitlisten sur la cle.
+# ExitOnForwardFailure : si le port est deja pris cote VPS, on echoue au lieu de faire
+#    croire que le tunnel est up (sinon : ecran blanc cote telephone, sans explication).
+ExecStart=/usr/bin/ssh -NT \
+  -o BatchMode=yes \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=20 \
+  -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile=/root/.ssh/known_hosts \
+  -i /root/.ssh/id_safedesk_tunnel \
+  -R 172.18.0.1:8443:127.0.0.1:3000 \
+  jerome@212.227.13.130
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

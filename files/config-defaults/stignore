@@ -1,0 +1,62 @@
+// SafeDesk — regles d'exclusion Syncthing du home /config
+//
+// POURQUOI : un profil d'application EN COURS D'EXECUTION (bases LevelDB/SQLite,
+// verrous, caches) ne peut pas etre replique entre deux machines qui tournent en
+// meme temps. Le resultat observe le 17/08/2026 : 235 fichiers .sync-conflict-*
+// dont 99 dans le profil Claude Desktop, et le login qui saute.
+//
+// Ce qui reste synchronise : les documents, les projets, les configurations
+// (dont claude_desktop_config.json = les serveurs MCP). Ce qui ne l'est plus :
+// les sessions, les cookies, les trousseaux et les caches — ils sont LOCAUX a la
+// machine par nature. Consequence assumee : un login par machine.
+
+// --- conflits deja crees : ne plus jamais les propager ---
+(?d)**/*.sync-conflict-*
+
+// --- trousseau : la cle qui dechiffre les cookies est propre a la machine ---
+/.local/share/kwalletd
+
+// --- Claude Desktop : etat d'execution (le reste du dossier suit) ---
+/.config/Claude/Singleton*
+/.config/Claude/Cookies*
+/.config/Claude/Local State
+/.config/Claude/Local Storage
+/.config/Claude/Session Storage
+/.config/Claude/IndexedDB
+/.config/Claude/Service Worker
+/.config/Claude/Partitions
+/.config/Claude/Cache
+/.config/Claude/Code Cache
+/.config/Claude/GPUCache
+/.config/Claude/DawnGraphiteCache
+/.config/Claude/DawnWebGPUCache
+/.config/Claude/blob_storage
+/.config/Claude/Crashpad
+/.config/Claude/logs
+/.config/Claude/sentry
+/.config/Claude/Network Persistent State
+/.config/Claude/DIPS*
+/.config/Claude/InterestGroups*
+/.config/Claude/fcache
+/.config/Claude/.safedesk-display
+
+// --- Google Chrome : meme raison (90 conflits au 17/08) ---
+/.config/google-chrome/Singleton*
+/.config/google-chrome/*/Cookies*
+/.config/google-chrome/Local State
+/.config/google-chrome/*/Local Storage
+/.config/google-chrome/*/Session Storage
+/.config/google-chrome/*/IndexedDB
+/.config/google-chrome/*/Service Worker
+/.config/google-chrome/*/Cache
+/.config/google-chrome/*/Code Cache
+/.config/google-chrome/*/GPUCache
+/.config/google-chrome/*/Sessions
+/.config/google-chrome/ShaderCache
+/.config/google-chrome/GrShaderCache
+/.config/google-chrome/GraphiteDawnCache
+/.config/google-chrome/Crashpad
+
+// --- divers etats de session de bureau ---
+/.XDG/KSMserver*
+/.cache
