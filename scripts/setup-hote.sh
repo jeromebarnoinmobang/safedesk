@@ -20,6 +20,20 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# --- 0. Outils indispensables -------------------------------------------------
+#
+# Constate le 21/08/2026 : « make » n'etait pas installe sur la station, donc
+# « make local » et « make hote » — l'interface documentee de ce depot — echouaient
+# sur « make: not found ». Une relance du bureau lancee en tache de fond a donc
+# echoue en silence : rien ne s'est passe, et rien ne l'a dit.
+for outil in make git curl; do
+  if ! command -v "$outil" >/dev/null 2>&1; then
+    echo "[outils] $outil manquant -> installation"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$outil"
+  fi
+done
+echo "[outils] make, git, curl presents"
+
 # --- 1. L horloge -------------------------------------------------------------
 #
 # LA CAUSE, et elle est classique en double amorcage : Windows ecrit l heure
