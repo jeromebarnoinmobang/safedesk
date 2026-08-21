@@ -14,6 +14,10 @@ builder-build.*
 landing/sd/SafeDesk.apk
 landing/.well-known/
 android/**/build/
+# Cache de build Gradle : quinze fichiers binaires et des verrous, reecrits a
+# chaque compilation. Suivis par erreur, ils salissaient l'arbre en permanence et
+# auraient fait echouer le « git pull » ajoute au demarrage (21/08/2026).
+android/.gradle/
 dist/
 
 # temporaires et conflits Syncthing

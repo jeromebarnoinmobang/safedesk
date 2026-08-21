@@ -3,6 +3,46 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# MISE A JOUR DU DEPOT AVANT DE DEMARRER, mais JAMAIS AU PRIX DU BUREAU.
+#
+# Le bureau doit demarrer meme sans reseau, meme si GitHub est injoignable, meme si
+# l arbre local a divergé. Chaque garde-fou ci-dessous protege un cas qui, sinon,
+# laisserait Jerome SANS environnement de travail :
+#   --ff-only            : jamais de commit de fusion ni de conflit a resoudre a
+#                          l aveugle au demarrage ; si ca ne s avance pas tout
+#                          seul, on garde la version locale et on le dit ;
+#   GIT_TERMINAL_PROMPT=0: le distant est en HTTPS. Sans ca, une demande
+#                          d identifiants BLOQUERAIT le script indefiniment ;
+#   timeout 60           : un reseau qui pend ne doit pas retarder le bureau ;
+#   if ... else          : l echec est ANNONCE, jamais fatal.
+#
+# Prealable regle le 21/08/2026 : android/.gradle etait suivi par git et reecrit a
+# chaque compilation, donc l arbre etait sale en permanence et le pull aurait
+# echoue a tous les coups. Ces artefacts sont desormais ignores.
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  printf '[maj] mise a jour du depot... '
+  if GIT_TERMINAL_PROMPT=0 timeout 60 git pull --ff-only --quiet 2>/dev/null; then
+    echo "a jour ($(git rev-parse --short HEAD))"
+  else
+    echo "impossible (reseau, identifiants ou divergence) -> on garde la version locale ($(git rev-parse --short HEAD))"
+  fi
+fi
+
+# L HORLOGE DE L HOTE, parce qu une horloge fausse est une panne SILENCIEUSE.
+#
+# Constate le 21/08/2026 : cette machine avait deux heures d avance en absolu. Rien
+# ne le montrait — le fuseau valant UTC, l heure AFFICHEE tombait juste par
+# coincidence. Mais tout fichier ecrit ici apparaissait deux heures dans le FUTUR
+# aux autres machines, ce qui a casse le filigrane du RAG et alimente les conflits
+# Syncthing. On ne corrige pas ici (il faut l hote et CAP_SYS_TIME) : on le DIT.
+if command -v timedatectl >/dev/null 2>&1; then
+  if [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null || echo inconnu)" != "yes" ]; then
+    echo "[attention] horloge NON synchronisee : les horodatages de cette machine"
+    echo "            peuvent etre faux pour les autres. Corriger avec :"
+    echo "            sudo timedatectl set-ntp true"
+  fi
+fi
+
 IMAGE=alpine:3.20   # sonde legere : on ne teste que les devices/libs, pas l app
 PROBE='if [ -e /dev/dxg ] && [ -f /usr/lib/wsl/lib/libd3d12.so ]; then echo WSL; elif [ -d /dev/dri ]; then echo DRI; else echo NONE; fi'
 
@@ -18,11 +58,31 @@ case "$MODE" in
   *)   echo "aucun rendu GPU -> rendu logiciel"; export RENDER_PROFILE=zz-no-gpu ;;
 esac
 
-# Camera USB : passee au conteneur si presente cote hote (Linux natif uniquement).
+# Camera USB : l override AV est pose SANS CONDITION sur Linux natif.
+#
+# POURQUOI CE N EST PLUS « si /dev/video0 existe », et c est une reunion manquee qui
+# l impose (21/08/2026). L override existe justement pour le HOTPLUG : il monte le
+# devtmpfs de l hote, donc une camera branchee A CHAUD apparait dans le conteneur
+# sans le recreer. Mais la DECISION de le poser restait un test au demarrage — donc
+# une camera absente au boot ne revenait JAMAIS, quoi qu on branche ensuite. Le
+# hotplug ne rattrapait que les sessions demarrees avec la camera deja la, c est-a-dire
+# exactement les cas ou il ne servait a rien.
+#
+# Le poser toujours ne coute rien quand il n y a pas de camera : monter /dev et
+# declarer une liste blanche cgroup ne cree aucun peripherique. Ca REND simplement
+# vrai ce que son propre commentaire promet.
+#
 # Le micro n a pas besoin de device : il arrive par la redirection RDP (voir docker-compose.av.yml).
-if [ -e /dev/video0 ]; then
-  echo "[detect] camera USB -> passthrough /dev/video0"
+#
+# WSL est exclu : l override est ecrit pour un devtmpfs Linux natif, et monter /dev
+# depuis WSL n a jamais ete essaye. On ne change pas un chemin qu on ne mesure pas.
+if [ "$MODE" != "WSL" ]; then
   FILES+=(-f docker-compose.av.yml)
+  if [ -e /dev/video0 ]; then
+    echo "[detect] camera detectee -> /dev/video0"
+  else
+    echo "[detect] aucune camera pour l instant -> hotplug actif, il suffira de la brancher"
+  fi
 fi
 
 docker compose "${FILES[@]}" up -d
