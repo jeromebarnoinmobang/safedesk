@@ -17,6 +17,9 @@ services:
       # Scripts audio montes PAR-DESSUS leurs copies cuites dans l image : une modif du
       # repo s applique a la recreation du conteneur, sans rebuild de l image.
       - ./files/custom-cont-init.d/safedesk-audio-setup:/custom-cont-init.d/safedesk-audio-setup:ro
+      # Applique TZ : l'image porte /etc/localtime -> Etc/UTC fige, et rien ne le
+      # met a jour. Voir le script pour ce que ce decalage a coute.
+      - ./files/custom-cont-init.d/safedesk-fuseau:/custom-cont-init.d/safedesk-fuseau:ro
       - ./files/custom-services.d/safedesk-rdp-audio:/custom-services.d/safedesk-rdp-audio:ro
       - ./files/custom-cont-init.d/safedesk-sync-ignores:/custom-cont-init.d/safedesk-sync-ignores:ro
       - ./files/config-defaults/stignore:/defaults/stignore:ro

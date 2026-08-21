@@ -1,0 +1,26 @@
+#!/usr/bin/with-contenv bash
+# Applique TZ au conteneur. A executer au demarrage, avant le bureau.
+#
+# POURQUOI CE SCRIPT EXISTE. L'image porte /etc/localtime -> Etc/UTC, fige a sa
+# construction, et rien ne le met a jour : la variable TZ arrivait bien
+# (TZ=Europe/Paris dans le .env et dans docker-compose.yml) mais restait sans
+# effet. Le bureau affichait donc de l'UTC.
+#
+# CE QUE CA COUTAIT, et c'est plus vicieux qu'un affichage decale. Tant que
+# l'horloge de l'HOTE avait elle-meme deux heures d'avance (RTC ecrit en heure
+# locale par Windows, relu comme de l'UTC par Linux), les deux erreurs
+# s'annulaient a l'ecran : le bureau affichait la bonne heure pour une mauvaise
+# raison. Rien ne pouvait le trahir. Le 21/08/2026, corriger l'horloge de l'hote a
+# fait apparaitre le decalage — ce qui etait une bonne nouvelle : la panne est
+# devenue visible.
+#
+# On ne touche a rien si TZ est vide ou si le fuseau demande n'existe pas dans
+# l'image : mieux vaut de l'UTC franc qu'un lien casse.
+set -u
+
+[ -z "${TZ:-}" ] && exit 0
+[ -f "/usr/share/zoneinfo/$TZ" ] || { echo "[fuseau] $TZ inconnu de l'image, on garde $(cat /etc/timezone 2>/dev/null || echo UTC)"; exit 0; }
+
+ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime
+printf '%s\n' "$TZ" > /etc/timezone
+echo "[fuseau] $TZ applique — il est $(date '+%H:%M:%S %Z')"
