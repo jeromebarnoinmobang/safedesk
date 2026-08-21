@@ -124,10 +124,37 @@ echo "[maj] minuteur actif : $(systemctl is-enabled safedesk-maj.timer 2>/dev/nu
 # l'override camera. A chaque demarrage il recreait donc le conteneur sans camera,
 # effaçant ce que « make local » venait de faire. Desormais les deux chemins
 # appellent le meme script : il n'y a plus qu'une facon de demarrer le bureau.
-echo "[bureau] service de demarrage -> scripts/up-local.sh"
+# QUEL PROFIL ? Un poste et un VPS ne se lancent pas pareil : le poste publie des
+# ports sur localhost et passe la camera, le VPS passe par Traefik et n'a pas d'USB.
+# Installer le mauvais chemin sur le VPS lui couperait son reseau.
+#
+# L'ordre va du plus explicite au plus devine :
+#   1. SAFEDESK_PROFIL=local|remote, si l'operateur l'a dit ;
+#   2. sinon, ce que le conteneur qui TOURNE utilise deja — la verite du terrain ;
+#   3. sinon, local, qui est le cas courant.
+PROFIL=${SAFEDESK_PROFIL:-}
+if [ -z "$PROFIL" ]; then
+  fichiers=$(docker inspect mobang-desktop \
+    --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null || true)
+  case "$fichiers" in
+    *remote.yml*) PROFIL=remote ;;
+    *)            PROFIL=local ;;
+  esac
+  echo "[bureau] profil devine depuis le conteneur en cours : $PROFIL"
+else
+  echo "[bureau] profil impose : $PROFIL"
+fi
+
+case "$PROFIL" in
+  remote) LANCEUR="$RACINE/scripts/up-remote.sh"; ARRET="docker compose -f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.av.yml down" ;;
+  local)  LANCEUR="$RACINE/scripts/up-local.sh";  ARRET="docker compose -f docker-compose.yml -f docker-compose.local.yml down" ;;
+  *)      echo "SAFEDESK_PROFIL inconnu : $PROFIL (attendu local ou remote)" >&2; exit 1 ;;
+esac
+
+echo "[bureau] service de demarrage -> $LANCEUR"
 sed -e "s|^WorkingDirectory=.*|WorkingDirectory=${RACINE}|" \
-    -e "s|^ExecStart=.*|ExecStart=${RACINE}/scripts/up-local.sh|" \
-    -e "s|^ExecStop=/usr/bin/docker compose|ExecStop=/usr/bin/docker compose|" \
+    -e "s|^ExecStart=.*|ExecStart=${LANCEUR}|" \
+    -e "s|^ExecStop=.*|ExecStop=/usr/bin/${ARRET}|" \
     "$RACINE/files/systemd/safedesk-stack.service" > /etc/systemd/system/safedesk-stack.service
 systemctl daemon-reload
 systemctl enable safedesk-stack.service >/dev/null 2>&1
