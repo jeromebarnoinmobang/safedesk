@@ -1,0 +1,15 @@
+[Unit]
+Description=SafeDesk — tirer le depot une fois par jour
+Documentation=https://github.com/jeromebarnoinmobang/safedesk
+
+[Timer]
+# Une fois par jour, tot, mais JAMAIS a heure fixe : un delai aleatoire evite que
+# toutes les machines tapent GitHub a la meme seconde.
+OnCalendar=daily
+RandomizedDelaySec=1h
+# La machine est un poste de travail, donc souvent eteinte la nuit : Persistent
+# rattrape le passage manque au demarrage suivant, au lieu de l'oublier.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

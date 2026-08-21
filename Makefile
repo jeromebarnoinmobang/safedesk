@@ -1,4 +1,7 @@
-.PHONY: local remote down logs
+.PHONY: hote local remote down logs
+
+hote:    ## Prerequis HOTE, une fois par machine (root) : horloge/NTP, nom
+	sudo bash scripts/setup-hote.sh
 
 local:   ## Bureau en local (detection GPU automatique, http://localhost:3000)
 	@bash scripts/up-local.sh

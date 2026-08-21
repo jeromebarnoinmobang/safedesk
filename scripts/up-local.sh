@@ -38,9 +38,18 @@ fi
 if command -v timedatectl >/dev/null 2>&1; then
   if [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null || echo inconnu)" != "yes" ]; then
     echo "[attention] horloge NON synchronisee : les horodatages de cette machine"
-    echo "            peuvent etre faux pour les autres. Corriger avec :"
-    echo "            sudo timedatectl set-ntp true"
+    echo "            peuvent etre faux pour les AUTRES machines sans que rien"
+    echo "            ne le montre ici. Corriger une fois pour toutes avec :"
+    echo "            sudo ./scripts/setup-hote.sh"
   fi
+fi
+
+# Une mise a jour tiree par le minuteur attend peut-etre d etre appliquee : c est
+# CE demarrage qui l applique, donc on le dit et on efface le marqueur.
+MARQUEUR=${SAFEDESK_MARQUEUR:-/var/lib/safedesk/maj-en-attente}
+if [ -f "$MARQUEUR" ]; then
+  echo "[maj] $(cat "$MARQUEUR")"
+  rm -f "$MARQUEUR" 2>/dev/null || true
 fi
 
 IMAGE=alpine:3.20   # sonde legere : on ne teste que les devices/libs, pas l app

@@ -1,0 +1,16 @@
+[Unit]
+Description=SafeDesk — mise a jour du depot depuis GitHub
+Documentation=https://github.com/jeromebarnoinmobang/safedesk
+# Sans reseau, le tirage echoue proprement : le service n'est pas un incident.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Le chemin est fixe a l'installation par setup-hote.sh (sed sur cette ligne).
+ExecStart=/opt/safedesk/scripts/maj.sh
+# Le tirage ne doit jamais passer devant le travail de Jerome.
+Nice=15
+IOSchedulingClass=idle
+# Un reseau qui pend ne doit pas laisser une unite accrochee indefiniment.
+TimeoutStartSec=300
