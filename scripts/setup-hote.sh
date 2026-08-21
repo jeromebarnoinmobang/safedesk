@@ -118,6 +118,21 @@ systemctl daemon-reload
 systemctl enable --now safedesk-maj.timer >/dev/null 2>&1
 echo "[maj] minuteur actif : $(systemctl is-enabled safedesk-maj.timer 2>/dev/null)"
 
+# --- 3 bis. Le service de demarrage du bureau ---------------------------------
+#
+# Il lançait une liste de fichiers compose ECRITE A LA MAIN, sans l'override GPU ni
+# l'override camera. A chaque demarrage il recreait donc le conteneur sans camera,
+# effaçant ce que « make local » venait de faire. Desormais les deux chemins
+# appellent le meme script : il n'y a plus qu'une facon de demarrer le bureau.
+echo "[bureau] service de demarrage -> scripts/up-local.sh"
+sed -e "s|^WorkingDirectory=.*|WorkingDirectory=${RACINE}|" \
+    -e "s|^ExecStart=.*|ExecStart=${RACINE}/scripts/up-local.sh|" \
+    -e "s|^ExecStop=/usr/bin/docker compose|ExecStop=/usr/bin/docker compose|" \
+    "$RACINE/files/systemd/safedesk-stack.service" > /etc/systemd/system/safedesk-stack.service
+systemctl daemon-reload
+systemctl enable safedesk-stack.service >/dev/null 2>&1
+echo "[bureau] $(systemctl is-enabled safedesk-stack.service 2>/dev/null)"
+
 # --- 4. Verdict ---------------------------------------------------------------
 echo
 timedatectl | grep -E 'Local time|Universal time|RTC time|synchronized|NTP service'

@@ -1,0 +1,33 @@
+[Unit]
+Description=SafeDesk — le bureau, au demarrage de la machine
+Documentation=https://github.com/jeromebarnoinmobang/safedesk
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Le chemin est fixe a l'installation par setup-hote.sh (sed sur ces deux lignes).
+WorkingDirectory=/opt/safedesk
+#
+# ON APPELLE LE MEME SCRIPT QUE « make local », ET C'EST TOUT L'INTERET.
+#
+# Cette unite lançait auparavant « docker compose -f docker-compose.yml
+# -f docker-compose.local.yml up -d » : une liste de fichiers ECRITE A LA MAIN, qui
+# ne contenait ni l'override GPU ni l'override camera. Consequence constatee le
+# 21/08/2026 : a CHAQUE demarrage, le conteneur etait recree sans passage de la
+# camera, ce qui effaçait silencieusement ce que « make local » venait de faire.
+# La camera ne pouvait donc structurellement jamais survivre a un redemarrage — et
+# personne ne pouvait le deviner, puisque les deux chemins avaient l'air de faire
+# la meme chose.
+#
+# Deux chemins de demarrage qui divergent, c'est un chemin de trop. Il n'y en a
+# plus qu'un : up-local.sh detecte le GPU, pose l'override camera, tire le depot,
+# et signale une horloge non synchronisee.
+ExecStart=/opt/safedesk/scripts/up-local.sh
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.local.yml down
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
