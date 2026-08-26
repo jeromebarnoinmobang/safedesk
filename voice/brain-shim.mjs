@@ -172,12 +172,23 @@ function sseChunk(id, delta, finish = null) {
     choices: [{ index: 0, delta: delta ? { content: delta } : {}, finish_reason: finish }],
   })}\n\n`;
 }
-const baseArgs = () => {
-  const a = ['--verbose', '--include-partial-messages', '--permission-mode', 'bypassPermissions'];
+// `sansOutils` -- signal EXPLICITE porte par l'appelant (jamais un defaut), pour un
+// cerveau de RAISONNEMENT PUR : pas d'edition de fichiers, pas de commandes, pas de
+// MCP. Raison d'etre (chantier, commit e976076) : un noeud cense seulement reformuler
+// ou planifier tapait la MEME session agentique que l'executeur, et a resolu une tache
+// PENDANT l'etape de reformulation -- invalidant la comparaison graphe/baseline. Le
+// mode par defaut (bypassPermissions) reste INCHANGE pour tout le reste : la voix
+// continue d'agir, l'executeur de chantier continue d'agir, c'est leur travail.
+const baseArgs = ({ sansOutils = false } = {}) => {
+  const a = sansOutils
+    ? ['--verbose', '--include-partial-messages', '--permission-mode', 'plan']
+    : ['--verbose', '--include-partial-messages', '--permission-mode', 'bypassPermissions'];
   if (SYSTEM_PROMPT) a.push('--append-system-prompt', SYSTEM_PROMPT);
   a.push('--model', MODEL, '--effort', EFFORT);
-  const mcp = mcpConfigArg();
-  if (mcp) a.push('--mcp-config', mcp);
+  if (!sansOutils) {
+    const mcp = mcpConfigArg();
+    if (mcp) a.push('--mcp-config', mcp);
+  }
   return a;
 };
 
