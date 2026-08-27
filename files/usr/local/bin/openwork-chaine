@@ -23,7 +23,7 @@
 #   openwork-chaine etat        état des maillons ; code retour 0 si tout tient
 #   openwork-chaine assurer     répare ce qui manque (idempotent) — c'est le service
 #   openwork-chaine relancer    tue tout et remonte
-#   openwork-chaine stop        arrête tout (opencode continue sur le VPS)
+#   openwork-chaine stop        arrête tout, moteur compris
 #
 # Variables :
 #   OPENWORK_TEL=0   désactive le volet téléphone (front 14881 + tunnel inverse)
@@ -42,21 +42,54 @@ APP=/config/Projects/openwork-app
 RUN=$APP/tmp
 LOG=$RUN/logs
 
-PORT_OC=14098          # tunnel SORTANT vers opencode du VPS (127.0.0.1:4096 là-bas)
+PORT_OC=14096          # opencode, ICI, dans SafeDesk
 PORT_SRV=14877         # serveur openwork (local)
 PORT_FRONT=14880       # front du BUREAU        -> API locale
 PORT_FRONT_TEL=14881   # front du TÉLÉPHONE     -> API publique
 PORT_VOICE=8089        # page vocale (déjà servie par un autre service)
 VPS=mobang-prod
-TUNNEL_OC="$PORT_OC:127.0.0.1:4096"
 
-# Le port local est 14098, PAS 14099 : si un ancien fork tournait encore sur 14099,
-# réutiliser ce numéro ferait passer une panne de tunnel pour un succès.
+# ═══ LE MOTEUR EST REVENU SUR LE POSTE (27/08/2026) ═══════════════════════════
+#
+# Jérôme : « je veux que openwork soit une alternative à claude desktop, donc doit
+# avoir les mêmes capacités d'agir sur mon poste physique. »
+#
+# Ce n'est pas une préférence, c'est une contrainte physique. Une enquête à
+# 24 agents l'a établie :
+#
+#   Le premier maillon de l'exécution d'un outil n'est pas un protocole, c'est un
+#   fork(). Un moteur qui tourne ailleurs ne peut pas forker ici.
+#
+# `read`, `write`, `bash` s'exécutent DANS le processus opencode et voient le
+# disque de la machine où il tourne. Aucun pont d'outils n'existe — vérifié dans
+# le fork ET dans l'amont. Claude Desktop fait exactement pareil : il lance Claude
+# Code en processus fils LOCAL, un binaire qui contient à la fois le client du
+# modèle et les outils. Le modèle est distant, l'agent est ici.
+#
+# CE QUI ANNULE LE DÉMÉNAGEMENT DU 25/08. opencode avait quitté SafeDesk parce
+# qu'il y était mort d'un PATH manquant sans que personne le sache pendant 24 h.
+# Ce n'était pas un défaut de l'endroit, c'était une ABSENCE DE SUPERVISION —
+# celle-là même que ce script est devenu. Le déménagement traitait le symptôme.
+#
+# Les numéros de port racontent l'histoire, et c'est voulu :
+#   14099  l'ancien fork local, abandonné
+#   14098  le tunnel vers le VPS, retiré aujourd'hui
+#   14096  le moteur local, celui-ci
+# Ne jamais réutiliser un numéro mort : un vieux processus qui répond ferait
+# passer une panne pour un succès.
+
+# Le binaire du fork. Il porte le provider `claude-code` et le graphe — l'amont
+# ne les a pas. `/usr/local/bin` d'abord (posé par l'image), le dist du fork
+# ensuite (poste de développement, binaire fraîchement compilé).
+BINAIRE_OC=/usr/local/bin/opencode
+[ -x "$BINAIRE_OC" ] || BINAIRE_OC=/config/Projects/workbench/packages/opencode/dist/opencode-linux-x64/bin/opencode
+
+CONF_OC=/config/.config/opencode/opencode.jsonc
+ENV_OC_POSTE=/config/.config/safedesk/opencode-poste.env   # OPENCODE_SERVER_USERNAME/PASSWORD
 
 API_LOCALE="http://127.0.0.1:$PORT_SRV"
 API_PUBLIQUE=https://openwork-api.mobang.fr
 
-ENV_OC=/config/.config/safedesk/opencode-vps.env   # OPENCODE_SERVER_USERNAME/PASSWORD
 ENV_OW=/config/.config/safedesk/openwork.env       # OPENWORK_TOKEN
 
 ETAT_LOG=/config/.local/state/safedesk/openwork.log
@@ -100,10 +133,47 @@ env_du_pid() {
 http_ok() { curl -sf -m "${3:-6}" -o /dev/null "$1" ${2:+-u "$2"} 2>/dev/null; }
 
 charger_env() {
-  [ -r "$ENV_OC" ] || { dire "MANQUE : $ENV_OC (identifiants opencode du VPS)"; return 1; }
   [ -r "$ENV_OW" ] || { dire "MANQUE : $ENV_OW (OPENWORK_TOKEN)"; return 1; }
+
+  # LES IDENTIFIANTS DU MOTEUR LOCAL SE FABRIQUENT ICI, UNE FOIS, ET NE S AFFICHENT
+  # JAMAIS. C est ce que fait le produit lui-meme (managed-opencode.ts genere un
+  # couple aleatoire a chaque demarrage). On les garde dans un fichier 0600 plutot
+  # qu en memoire parce que `openwork-chaine etat`, lance a la main, doit pouvoir
+  # interroger un moteur deja demarre.
+  #
+  # NOUVEAU FICHIER, PAS CELUI DU VPS : le mot de passe d opencode-vps a ete
+  # expose en clair dans un transcript le 27/08. Le moteur local demarre propre.
+  if [ ! -r "$ENV_OC_POSTE" ]; then
+    mkdir -p "$(dirname "$ENV_OC_POSTE")"
+    ( umask 077
+      { echo "OPENCODE_SERVER_USERNAME=opencode"
+        echo "OPENCODE_SERVER_PASSWORD=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+      } > "$ENV_OC_POSTE" )
+    dire "identifiants du moteur local crees ($ENV_OC_POSTE, 0600)"
+  fi
   # shellcheck disable=SC1090
-  . "$ENV_OC"; . "$ENV_OW"
+  . "$ENV_OC_POSTE"; . "$ENV_OW"
+
+  # Les jetons des MCP et des fournisseurs. `voice.env` les porte deja sur ce
+  # poste ; on le lit sans le rendre obligatoire — opencode demarre sans, seuls
+  # les MCP et certains fournisseurs manqueront, et l echec sera franc a l usage.
+  # shellcheck disable=SC1090
+  [ -r /config/.config/safedesk/voice.env ] && . /config/.config/safedesk/voice.env
+  export SECOND_BRAIN_MCP_TOKEN RUNPOD_API_KEY
+
+  # CLAUDE_CODE_OAUTH_TOKEN EST DELIBEREMENT RETIRE DE L ENVIRONNEMENT.
+  #
+  # Mesure du 27/08 : premier tour du moteur local ->
+  #     Failed to authenticate: OAuth session expired and could not be refreshed
+  # La variable de `voice.env` est perimee, et quand elle est posee `claude` la
+  # PREFERE au fichier ~/.claude/.credentials.json. Sur ce poste ce fichier
+  # existe, il est frais, et Claude Code le renouvelle tout seul.
+  #
+  # La regle est celle de l endroit : sur le VPS il n y a pas de fichier, donc la
+  # variable est la seule source ; ICI le fichier fait foi, et la variable ne peut
+  # que le masquer avec une valeur morte.
+  unset CLAUDE_CODE_OAUTH_TOKEN
+
   : "${OPENCODE_SERVER_USERNAME:?}" "${OPENCODE_SERVER_PASSWORD:?}" "${OPENWORK_TOKEN:?}"
 }
 
@@ -112,7 +182,7 @@ charger_env() {
 # (Séparer constater de réparer est ce qui rend `etat` utilisable comme preuve.)
 # ─────────────────────────────────────────────────────────────────────────────
 
-constater_tunnel_oc() {
+constater_opencode() {
   http_ok "http://127.0.0.1:$PORT_OC/global/health" \
           "$OPENCODE_SERVER_USERNAME:$OPENCODE_SERVER_PASSWORD" 6
 }
@@ -143,19 +213,57 @@ telephone_actif() { [ "${OPENWORK_TEL:-1}" = "1" ]; }
 # Les POSES — elles réparent. Chacune est idempotente.
 # ─────────────────────────────────────────────────────────────────────────────
 
-poser_tunnel_oc() {
-  for p in $(pgrep -f "$TUNNEL_OC" 2>/dev/null); do [ "$p" != "$$" ] && kill "$p" 2>/dev/null; done
-  tuer_le_port "$PORT_OC"
-  # ExitOnForwardFailure : sans lui, ssh réussit même si le port local est pris, et
-  # on croit parler au VPS alors qu'on parle à un vieux processus.
-  ssh -N -f -o BatchMode=yes -o ExitOnForwardFailure=yes \
-      -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-      -L "127.0.0.1:$TUNNEL_OC" "$VPS" >>"$LOG/tunnel.log" 2>&1 || {
-    dire "ÉCHEC tunnel opencode vers $VPS — vérifie : ssh $VPS 'docker ps --filter name=opencode-vps'"
+poser_opencode() {
+  [ -x "$BINAIRE_OC" ] || {
+    dire "ÉCHEC : binaire opencode introuvable ($BINAIRE_OC). Compiler le fork :"
+    dire "        cd /config/Projects/workbench/packages/opencode && bun run script/build.ts --single"
     return 1
   }
-  for _ in $(seq 1 40); do constater_tunnel_oc && return 0; sleep 0.5; done
-  dire "ÉCHEC : opencode du VPS muet sur :$PORT_OC après 20 s"
+  tuer_le_port "$PORT_OC"
+  mkdir -p "$LOG"
+
+  # `exec` : le sous-shell DEVIENT opencode, sinon un shell parent survit à côté et
+  # `pgrep` compte des coquilles vides. `</dev/null` : un démon qui garde stdin
+  # ouvert vole l'entrée de son lanceur.
+  #
+  # `--cors` accepte les deux fronts : le serveur openwork proxifie, mais le
+  # navigateur touche parfois opencode directement (flux d'événements).
+  # OPENCODE_FLUX — LE GRAPHE SUIT LE MOTEUR. Arbitrage de Jérôme du 27/08 :
+  # OpenWork = régime chantier, quel que soit l'endroit où le moteur tourne ;
+  # l'interface est l'interrupteur, pas une variable qu'on peut oublier. Le
+  # dossier est le MÊME contenu que celui du VPS (recettes à chemins relatifs,
+  # chantier.json régénéré depuis `intendant flux --graphe chantier --json`).
+  # SECOND_BRAIN_* : les nœuds `etat` et `radar` lisent le cerveau par l'URL
+  # publique — le nom docker `second-brain-mcp` n'existe pas sur le poste.
+  # OPENCODE_SELF_URL : les gardes `cadrer`/`prouver` interrogent CE moteur ;
+  # sans elle, commun.mjs retombe sur :4096 — le port du VPS qu'on retire.
+  #
+  # LE JETON DU CERVEAU VIENT DE LA CONFIG MCP DE CLAUDE, PAS DE voice.env.
+  # Mesuré le 27/08 : celui de voice.env rend 401 sur l'URL publique (périmé —
+  # le commentaire plus haut le disait déjà). Celui de .claude.json est LE jeton
+  # que le poste utilise pour parler au cerveau à chaque session ; le lire ici
+  # n'ajoute aucun stockage nouveau, et il n'existe qu'à UN endroit sur ce poste.
+  JETON_CERVEAU=$(python3 -c "
+import json
+d=json.load(open('/config/.claude.json'))
+s=(d.get('mcpServers') or {}).get('second-brain') or {}
+a=(s.get('headers') or {}).get('Authorization','')
+print(a.removeprefix('Bearer').strip())" 2>/dev/null)
+  [ -n "$JETON_CERVEAU" ] || trace "jeton second-brain introuvable dans .claude.json — etat/radar liront a vide"
+  ( cd /config && exec nohup env \
+      OPENCODE_CONFIG="$CONF_OC" \
+      OPENCODE_FLUX=/config/.config/safedesk/flux \
+      OPENCODE_SELF_URL="http://127.0.0.1:$PORT_OC" \
+      SECOND_BRAIN_URL="https://second-brain.mobang.fr" \
+      SECOND_BRAIN_MCP_TOKEN="${JETON_CERVEAU:-${SECOND_BRAIN_MCP_TOKEN:-}}" \
+      OPENCODE_SERVER_USERNAME="$OPENCODE_SERVER_USERNAME" \
+      OPENCODE_SERVER_PASSWORD="$OPENCODE_SERVER_PASSWORD" \
+      "$BINAIRE_OC" serve --hostname 127.0.0.1 --port "$PORT_OC" \
+        --cors "http://127.0.0.1:$PORT_FRONT,http://127.0.0.1:$PORT_FRONT_TEL" \
+      >"$LOG/opencode.log" 2>&1 </dev/null ) &
+
+  for _ in $(seq 1 60); do constater_opencode && return 0; sleep 0.5; done
+  dire "ÉCHEC : opencode local muet sur :$PORT_OC après 30 s (voir $LOG/opencode.log)"
   return 1
 }
 
@@ -244,12 +352,12 @@ poser_tunnel_inverse() {
 cmd_etat() {
   charger_env || return 2
   local rc=0 pid api
-  if constater_tunnel_oc; then
-    printf 'tunnel-opencode :%-6s OK   %s\n' "$PORT_OC" \
+  if constater_opencode; then
+    printf 'opencode local  :%-6s OK   %s\n' "$PORT_OC" \
       "$(curl -sf -m 6 -u "$OPENCODE_SERVER_USERNAME:$OPENCODE_SERVER_PASSWORD" \
            "http://127.0.0.1:$PORT_OC/global/health" 2>/dev/null)"
   else
-    printf 'tunnel-opencode :%-6s MORT\n' "$PORT_OC"; rc=1
+    printf 'opencode local  :%-6s MORT\n' "$PORT_OC"; rc=1
   fi
 
   if constater_serveur; then
@@ -292,7 +400,7 @@ cmd_assurer() {
   charger_env || return 2
   mkdir -p "$LOG" "$(dirname "$ETAT_LOG")"
 
-  constater_tunnel_oc || { trace "réparation : tunnel opencode"; poser_tunnel_oc || return 1; }
+  constater_opencode || { trace "réparation : moteur opencode local"; poser_opencode || return 1; }
   constater_serveur   || { trace "réparation : serveur openwork"; poser_serveur   || return 1; }
   constater_front "$PORT_FRONT" "$API_LOCALE" \
     || { trace "réparation : front bureau"; poser_front "$PORT_FRONT" "$API_LOCALE" "$PORT_SRV" front.log || return 1; }
@@ -311,12 +419,12 @@ cmd_assurer() {
 }
 
 cmd_stop() {
-  for p in $(pgrep -f "$TUNNEL_OC" 2>/dev/null); do [ "$p" != "$$" ] && kill "$p" 2>/dev/null; done
   for p in $(pgrep -f "0.0.0.0:14980:127.0.0.1:" 2>/dev/null); do kill "$p" 2>/dev/null; done
+  tuer_le_port "$PORT_OC"
   tuer_le_port "$PORT_SRV"
   tuer_le_port "$PORT_FRONT"
   tuer_le_port "$PORT_FRONT_TEL"
-  dire "chaîne arrêtée (opencode continue de tourner sur le VPS)"
+  dire "chaîne arrêtée, moteur compris"
 }
 
 case "${1:-etat}" in
