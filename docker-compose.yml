@@ -42,6 +42,13 @@ services:
   # Sidecar Syncthing : replique le home KDE (/config) local <-> VPS (converge au switch).
   home-sync:
     image: syncthing/syncthing@sha256:775c4aac486263ca8653055bba7d3061799281974b706695e17bc798da3f4e92
+    # PID 1 QUI MOISSONNE, sinon le conteneur devient impossible a redemarrer.
+    # Constate le 28/08/2026 : « container PID is zombie and can not be killed » —
+    # l entrypoint de Syncthing sert de PID 1 sans reaper les enfants ni relayer
+    # les signaux. Un redemarrage laisse alors un zombie, et docker restart echoue
+    # DEFINITIVEMENT sur ce conteneur (seul un rm -f le recupere). Docker propose
+    # lui-meme le correctif dans son message d erreur.
+    init: true
     container_name: mobang-desktop-sync
     hostname: safedesk-sync
     volumes:

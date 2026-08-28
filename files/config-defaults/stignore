@@ -99,6 +99,13 @@
 // ete oublies.
 /.npm/_cacache
 /.npm/_npx
+// node_modules des APPLICATIONS (pas des projets) : sessions Claude Desktop,
+// greffons, outils installes a la volee. Regeneres par leur application, jamais
+// edites a la main. Mesure du 28/08 : pres d un quart de la file du Pi.
+// Les node_modules de Projects/ ne sont VOLONTAIREMENT pas ici — les exclure
+// voudrait dire qu un projet ne se lance pas sans npm install prealable.
+/.config/**/node_modules
+/.local/**/node_modules
 /.bun/install/cache
 /.local/share/pnpm/store
 /.cargo/registry
