@@ -94,6 +94,6 @@ if [ "$MODE" != "WSL" ]; then
   fi
 fi
 
-docker compose "${FILES[@]}" up -d
+docker compose "${FILES[@]}" up -d --build
 echo
 echo "Bureau : http://localhost:3000   (rendu : $RENDER_PROFILE)"
