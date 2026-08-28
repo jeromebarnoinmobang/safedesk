@@ -1,0 +1,85 @@
+# Override RASPBERRY PI 5 — ce qu'une appliance sans ecran a de plus qu'un poste.
+#
+# Pose AUTOMATIQUEMENT par scripts/up-local.sh quand /proc/device-tree/model
+# annonce un Raspberry Pi 5. Il n'y a rien a lancer a la main.
+#
+# Deux besoins que le poste fixe n'a pas :
+#
+# 1. L'ACCES PAR LE RESEAU LOCAL.
+#    Le poste fixe a un ecran : ses ports sont lies a 127.0.0.1, et c'est la
+#    bonne valeur par defaut — un bureau publie sur tout le reseau n'est protege
+#    que par DESKTOP_PASSWORD. Le Pi, lui, n'a pas d'ecran : « en local » n'existe
+#    pas pour lui, et un bureau lie a 127.0.0.1 n'est atteignable par PERSONNE.
+#    On REMPLACE donc la liste des ports (`!override`) au lieu d'en ajouter : les
+#    deux listes fusionnees donneraient 127.0.0.1:3000 ET 0.0.0.0:3000, c'est-a-dire
+#    deux liaisons sur le meme port de l'hote -> le conteneur ne demarre plus.
+#    /!\ A n'utiliser que sur un reseau de confiance. Pour une exposition depuis
+#        Internet, c'est docker-compose.remote.yml (Traefik + HTTPS + auth) qu'il
+#        faut, pas ce fichier.
+#
+# 2. LE BLUETOOTH.
+#    Le Pi 5 porte un controleur integre (hci0, bus UART) — le poste fixe n'en a
+#    pas forcement, et surtout le probleme ne se pose pas pareil.
+#
+#    CE QUI NE MARCHE PAS, et il faut le dire parce que c'est le premier reflexe :
+#    monter /dev dans le conteneur ne donne AUCUN acces au Bluetooth. Un controleur
+#    Bluetooth n'est pas un fichier de peripherique, c'est une interface attachee a
+#    un NAMESPACE RESEAU (famille de sockets AF_BLUETOOTH). Le conteneur a le sien,
+#    donc il ne verra jamais hci0, quels que soient les montages ou les capabilities.
+#    Les deux seules sorties sont `network_mode: host` — qui ferait sauter toute la
+#    publication de ports ci-dessus — ou parler au bluetoothd de l'HOTE.
+#
+#    C'est la seconde qu'on prend : on monte le bus systeme D-Bus de l'hote. Les
+#    outils du bureau (bluedevil de KDE, bluetoothctl) pilotent alors l'adaptateur
+#    de l'hote a travers BlueZ, exactement comme le ferait une application native.
+#    Le conteneur garde son propre reseau.
+#
+#    L'AUDIO d'un casque Bluetooth ne depend PAS de ce montage : le casque est
+#    appaire cote hote, PipeWire le prend en charge la-bas, et le son arrive au
+#    bureau par la redirection RDP deja en place (voir docker-compose.av.yml).
+#    Ce montage sert a APPAIRER et gerer les peripheriques depuis le bureau.
+#
+#    PREREQUIS COTE HOTE, pose par scripts/setup-hote.sh : une regle polkit qui
+#    autorise l'UID du bureau a appairer. Sans elle, BlueZ refuse silencieusement
+#    toute demande de pairage — polkit n'accorde ces droits qu'a une session
+#    locale « active » au sens de logind, et un conteneur n'en a aucune.
+services:
+  desktop:
+    ports: !override
+      - "3000:3000"     # bureau web, accessible depuis le reseau local
+      - "3389:3389"     # RDP (mstsc / xfreerdp) - basse latence
+    volumes:
+      # Le bus SYSTEME de l'hote : c'est par la que BlueZ se pilote.
+      # En lecture-ecriture par necessite (un socket se parle dans les deux sens).
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+    environment:
+      # Explicite plutot que devine : certaines applications lisent cette variable
+      # au lieu de supposer le chemin par defaut.
+      DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/run/dbus/system_bus_socket"
+
+  # 3. LE PORT DE SYNCHRONISATION, publie sur le reseau local.
+  #
+  #    Constate le 28/08/2026 : aucune machine de la flotte ne publiait 22000. Les
+  #    Syncthing ne pouvaient donc que composer VERS l exterieur, jamais recevoir —
+  #    et faute de chemin direct, ils se rabattaient tous sur un RELAIS PUBLIC. Deux
+  #    machines posees sur le meme reseau local faisaient transiter leurs octets par
+  #    un tiers a l autre bout d Internet. Pour 9,5 Go de home, ca se compte en
+  #    heures au lieu de minutes.
+  #
+  #    Publier 22000 rend le Pi JOIGNABLE : les autres machines composent vers lui
+  #    en direct. Il suffit qu UN des deux cotes soit joignable — la connexion
+  #    Syncthing est bidirectionnelle une fois etablie. C est pourquoi le poste fixe
+  #    n a rien a publier ; il porte simplement l adresse du Pi dans sa liste.
+  #
+  #    Ce n est pas une ouverture au sens ou on l entend d habitude : un pair
+  #    Syncthing doit presenter un certificat dont l empreinte EST l identifiant de
+  #    l appareil, et cet identifiant doit avoir ete ajoute a la main des deux cotes.
+  #    Un inconnu qui frappe a la porte est refuse avant tout echange de donnees.
+  #
+  #    21027/udp accompagne : c est la decouverte locale, elle evite d avoir a
+  #    reecrire les adresses quand le bail DHCP change.
+  home-sync:
+    ports:
+      - "22000:22000/tcp"
+      - "22000:22000/udp"
+      - "21027:21027/udp"

@@ -160,6 +160,54 @@ systemctl daemon-reload
 systemctl enable safedesk-stack.service >/dev/null 2>&1
 echo "[bureau] $(systemctl is-enabled safedesk-stack.service 2>/dev/null)"
 
+
+# --- 3 ter. Le Bluetooth du Raspberry Pi 5 ------------------------------------
+#
+# Uniquement sur Pi 5, ou le bureau pilote l adaptateur Bluetooth de l HOTE par le
+# bus systeme D-Bus. Le pourquoi est dans docker-compose.pi5.yml : un controleur
+# Bluetooth appartient a un NAMESPACE RESEAU, le conteneur ne peut donc pas avoir
+# le sien, quels que soient les montages.
+#
+# CE QUE POLKIT BLOQUE SANS CETTE REGLE, et c est une panne parfaitement muette :
+# BlueZ ne confie l appairage qu a une session locale « active » au sens de logind.
+# Un client qui arrive par le socket D-Bus depuis un conteneur n a AUCUNE session.
+# Le bureau voit donc les peripheriques, affiche la liste, propose d appairer — et
+# l appairage echoue sans message exploitable. La regle rend le droit explicite, et
+# le limite au seul compte qui fait tourner le bureau (PUID du .env, 1000 par
+# defaut) : ce n est pas un blanc-seing pour toute la machine.
+MODELE_HOTE=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo '')
+case "$MODELE_HOTE" in
+  *"Raspberry Pi 5"*)
+    PUID_BUREAU=$(grep -E '^PUID=' "$RACINE/.env" 2>/dev/null | cut -d= -f2)
+    PUID_BUREAU=${PUID_BUREAU:-1000}
+    COMPTE_BUREAU=$(getent passwd "$PUID_BUREAU" | cut -d: -f1)
+    if [ -z "$COMPTE_BUREAU" ]; then
+      echo "[bluetooth] aucun compte pour l UID $PUID_BUREAU -> regle polkit non posee"
+    else
+      if ! systemctl is-enabled bluetooth >/dev/null 2>&1; then
+        echo "[bluetooth] service bluetooth non actif -> activation"
+        systemctl enable --now bluetooth >/dev/null 2>&1 || true
+      fi
+      cat > /etc/polkit-1/rules.d/51-safedesk-bluetooth.rules <<REGLE
+// SafeDesk — pose par scripts/setup-hote.sh, ne pas editer a la main.
+// Autorise le compte qui fait tourner le bureau conteneurise a piloter BlueZ.
+// Sans cette regle, l appairage echoue en silence : le client arrive par le
+// socket D-Bus depuis un conteneur, donc sans session logind « active », et
+// polkit refuse par defaut.
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.bluez.") === 0 &&
+        subject.user === "$COMPTE_BUREAU") {
+        return polkit.Result.YES;
+    }
+});
+REGLE
+      chmod 0644 /etc/polkit-1/rules.d/51-safedesk-bluetooth.rules
+      systemctl restart polkit >/dev/null 2>&1 || true
+      echo "[bluetooth] adaptateur de l hote pilotable par « $COMPTE_BUREAU » depuis le bureau"
+    fi
+    ;;
+esac
+
 # --- 4. Verdict ---------------------------------------------------------------
 echo
 timedatectl | grep -E 'Local time|Universal time|RTC time|synchronized|NTP service'

@@ -52,6 +52,7 @@ if [ -f "$MARQUEUR" ]; then
   rm -f "$MARQUEUR" 2>/dev/null || true
 fi
 
+ADRESSE="http://localhost:3000"   # remplacee sur une machine sans ecran
 IMAGE=alpine:3.20   # sonde legere : on ne teste que les devices/libs, pas l app
 PROBE='if [ -e /dev/dxg ] && [ -f /usr/lib/wsl/lib/libd3d12.so ]; then echo WSL; elif [ -d /dev/dri ]; then echo DRI; else echo NONE; fi'
 
@@ -94,6 +95,35 @@ if [ "$MODE" != "WSL" ]; then
   fi
 fi
 
+
+# LE RASPBERRY PI 5 EST UNE APPLIANCE, PAS UN POSTE — et ca change deux choses.
+#
+# La detection lit /proc/device-tree/model, seule source fiable du modele : ni le
+# noyau ni l architecture ne distinguent un Pi 5 d un Pi 4. Le fichier se termine
+# par un octet NUL, d ou le `tr -d`.
+#
+# Ce que l override apporte est detaille dans docker-compose.pi5.yml. En deux mots :
+# les ports quittent 127.0.0.1 pour le reseau local (une machine sans ecran n a pas
+# d utilisateur « local »), et le bus systeme D-Bus de l hote entre dans le bureau
+# pour que le Bluetooth soit pilotable. Sur toute autre machine, rien n est pose.
+MODELE=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo '')
+case "$MODELE" in
+  *"Raspberry Pi 5"*)
+    echo "[detect] Raspberry Pi 5 -> acces reseau local + Bluetooth de l hote"
+    FILES+=(-f docker-compose.pi5.yml)
+    export INSTALL_BLUETOOTH=true
+    ADRESSE="http://$(hostname -I 2>/dev/null | awk '{print $1}'):3000"
+    # Les deux prerequis que ce fichier compose ne peut pas se donner lui-meme.
+    # On les VERIFIE ici plutot que de laisser le Bluetooth echouer en silence.
+    if [ ! -S /run/dbus/system_bus_socket ]; then
+      echo "[attention] aucun bus systeme D-Bus sur l hote : le Bluetooth ne sera pas"
+      echo "            pilotable depuis le bureau."
+    elif [ ! -f /etc/polkit-1/rules.d/51-safedesk-bluetooth.rules ]; then
+      echo "[attention] regle polkit Bluetooth absente : l appairage sera refuse SANS"
+      echo "            message. Corriger avec :  sudo ./scripts/setup-hote.sh"
+    fi
+    ;;
+esac
 docker compose "${FILES[@]}" up -d --build
 echo
-echo "Bureau : http://localhost:3000   (rendu : $RENDER_PROFILE)"
+echo "Bureau : $ADRESSE   (rendu : $RENDER_PROFILE)"

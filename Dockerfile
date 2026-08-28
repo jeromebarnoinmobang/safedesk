@@ -35,7 +35,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends gh code; \
     rm -rf /var/lib/apt/lists/*
 
-# --- OPTIONNEL : Google Chrome (amd64) / Chromium + Widevine (arm64 pour Raspberry Pi) ---
+# --- OPTIONNEL : Google Chrome (amd64) / Thorium ARM64 (Raspberry Pi avec Sync Google) ---
 RUN set -eux; \
     if [ "$INSTALL_CHROME" = "true" ]; then \
       ARCH="$(dpkg --print-architecture)"; \
@@ -48,11 +48,14 @@ RUN set -eux; \
         apt-get update; \
         apt-get install -y --no-install-recommends google-chrome-stable; \
       else \
-        apt-get install -y --no-install-recommends chromium chromium-l10n; \
-        ln -sf /usr/bin/chromium /usr/bin/google-chrome-stable; \
+        curl -fsSL -o /tmp/thorium.deb https://github.com/Alex313031/Thorium-Raspi/releases/download/M138.0.7204.303/thorium-browser_138.0.7204.303_arm64.deb; \
+        apt-get install -y --no-install-recommends /tmp/thorium.deb || apt-get install -f -y; \
+        ln -sf /usr/bin/thorium-browser /usr/bin/google-chrome-stable; \
+        rm -f /tmp/thorium.deb; \
       fi; \
       rm -rf /var/lib/apt/lists/*; \
     fi
+
 
 # --- OPTIONNEL : Claude Desktop (proprietaire, beta Linux) ---
 # La cle du depot est verifiee par empreinte : le build ECHOUE si elle ne correspond pas.
@@ -226,3 +229,27 @@ RUN chmod +x /custom-cont-init.d/safedesk-audio-setup
 RUN apt-get update && \
     apt-get install -y --no-install-recommends v4l-utils && \
     rm -rf /var/lib/apt/lists/*
+
+# --- OPTIONNEL : Bluetooth (Raspberry Pi 5 — voir docker-compose.pi5.yml) ------
+#
+# L image ne portait que la BIBLIOTHEQUE KDE (libkf6bluezqt) : de quoi compiler
+# contre BlueZ, mais aucun moyen de s en servir — ni ligne de commande, ni applet.
+# Le montage du bus D-Bus de l hote ne servait donc a rien : le bureau avait le
+# droit de parler a l adaptateur, et personne pour le faire.
+#
+#   bluez      : bluetoothctl et les outils. Le demon bluetoothd est installe avec,
+#                mais il ne DEMARRE PAS ici — aucun service ne le lance, et c est
+#                voulu : l adaptateur appartient au bluetoothd de l HOTE. Deux
+#                demons sur le meme controleur se battraient pour lui.
+#   bluedevil  : l integration Plasma (applet du systray, assistant d appairage,
+#                envoi de fichiers) — c est ce que Jerome voit et utilise.
+#
+# Desactive par defaut : sur un poste sans montage D-Bus, l applet n afficherait
+# qu un adaptateur absent.
+ARG INSTALL_BLUETOOTH=false
+RUN set -eux; \
+    if [ "$INSTALL_BLUETOOTH" = "true" ]; then \
+      apt-get update; \
+      apt-get install -y --no-install-recommends bluez bluedevil; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
