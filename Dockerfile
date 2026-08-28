@@ -35,9 +35,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends gh code; \
     rm -rf /var/lib/apt/lists/*
 
-# --- OPTIONNEL : Google Chrome (amd64) / Thorium ARM64 (Raspberry Pi avec Sync Google) ---
-# Chromium classique ne peut pas connecter un compte Google au navigateur depuis le 15/03/2021.
-# Sur ARM64 (Raspberry Pi), Thorium conserve les clés d'API Google Sync et Widevine.
+# --- OPTIONNEL : Google Chrome (amd64) / Chromium + Widevine (arm64 pour Raspberry Pi) ---
 RUN set -eux; \
     if [ "$INSTALL_CHROME" = "true" ]; then \
       ARCH="$(dpkg --print-architecture)"; \
@@ -50,10 +48,8 @@ RUN set -eux; \
         apt-get update; \
         apt-get install -y --no-install-recommends google-chrome-stable; \
       else \
-        curl -fsSLo /tmp/thorium.deb https://github.com/Alex313031/Thorium-Raspi/releases/download/M124.0.6367.207/thorium-browser_124.0.6367.207_arm64.deb; \
-        apt-get install -y --no-install-recommends /tmp/thorium.deb; \
-        ln -sf /usr/bin/thorium-browser /usr/bin/google-chrome-stable; \
-        rm -f /tmp/thorium.deb; \
+        apt-get install -y --no-install-recommends chromium chromium-l10n; \
+        ln -sf /usr/bin/chromium /usr/bin/google-chrome-stable; \
       fi; \
       rm -rf /var/lib/apt/lists/*; \
     fi
