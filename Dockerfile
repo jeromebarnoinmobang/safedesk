@@ -19,33 +19,42 @@ ARG INSTALL_FORGE=false
 # npm/npx sont fournis par le paquet nodejs (NodeSource) : ne pas installer npm (conflit).
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg dpkg; \
     apt-get install -y --no-install-recommends nodejs git; \
+    ARCH="$(dpkg --print-architecture)"; \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       -o /usr/share/keyrings/githubcli-archive-keyring.gpg; \
     chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg; \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    echo "deb [arch=${ARCH} signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
       > /etc/apt/sources.list.d/github-cli.list; \
     curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
       | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg; \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+    echo "deb [arch=${ARCH} signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
       > /etc/apt/sources.list.d/vscode.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends gh code; \
     rm -rf /var/lib/apt/lists/*
 
-# --- OPTIONNEL : Google Chrome (proprietaire) ---
-# Chromium ne peut pas connecter un compte Google au navigateur : depuis le 15/03/2021
-# Google reserve le jeton de synchronisation aux versions officielles de Chrome.
+# --- OPTIONNEL : Google Chrome (amd64) / Thorium ARM64 (Raspberry Pi avec Sync Google) ---
+# Chromium classique ne peut pas connecter un compte Google au navigateur depuis le 15/03/2021.
+# Sur ARM64 (Raspberry Pi), Thorium conserve les clés d'API Google Sync et Widevine.
 RUN set -eux; \
     if [ "$INSTALL_CHROME" = "true" ]; then \
+      ARCH="$(dpkg --print-architecture)"; \
       apt-get update; \
-      curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
-        | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg; \
-      echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-        > /etc/apt/sources.list.d/google-chrome.list; \
-      apt-get update; \
-      apt-get install -y --no-install-recommends google-chrome-stable; \
+      if [ "$ARCH" = "amd64" ]; then \
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+          | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg; \
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+          > /etc/apt/sources.list.d/google-chrome.list; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends google-chrome-stable; \
+      else \
+        curl -fsSLo /tmp/thorium.deb https://github.com/Alex313031/Thorium-Raspi/releases/download/M124.0.6367.207/thorium-browser_124.0.6367.207_arm64.deb; \
+        apt-get install -y --no-install-recommends /tmp/thorium.deb; \
+        ln -sf /usr/bin/thorium-browser /usr/bin/google-chrome-stable; \
+        rm -f /tmp/thorium.deb; \
+      fi; \
       rm -rf /var/lib/apt/lists/*; \
     fi
 
@@ -71,9 +80,14 @@ RUN set -eux; \
 # prive (VPN / tailnet) : voir docker-compose.phone.yml.
 RUN set -eux; \
     if [ "$INSTALL_SUNSHINE" = "true" ]; then \
+      ARCH="$(dpkg --print-architecture)"; \
       apt-get update; \
-      curl -fsSLo /tmp/sunshine.deb \
-        https://github.com/LizardByte/Sunshine/releases/download/v2026.516.143833/sunshine-debian-trixie-amd64.deb; \
+      if [ "$ARCH" = "amd64" ]; then \
+        SUNSHINE_URL="https://github.com/LizardByte/Sunshine/releases/download/v2026.516.143833/sunshine-debian-trixie-amd64.deb"; \
+      else \
+        SUNSHINE_URL="https://github.com/LizardByte/Sunshine/releases/download/v2026.516.143833/sunshine-debian-trixie-arm64.deb"; \
+      fi; \
+      curl -fsSLo /tmp/sunshine.deb "$SUNSHINE_URL"; \
       apt-get install -y --no-install-recommends /tmp/sunshine.deb; \
       rm -f /tmp/sunshine.deb; rm -rf /var/lib/apt/lists/*; \
     fi
@@ -194,10 +208,19 @@ COPY files/custom-services.d/xrdp /custom-services.d/xrdp
 RUN chmod +x /etc/xrdp/startwm.sh /custom-services.d/xrdp
 
 # --- Audio RDP : module xrdp pre-compile + service de routage auto (toutes apps, RDP<->navigateur) ---
-COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so
-COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so
+# Copie sécurisée : les binaires pulse x86 ne sont appliqués que si l'architecture hôte est amd64.
+COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so /tmp/module-xrdp-sink.so
+COPY files/usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so /tmp/module-xrdp-source.so
 COPY files/custom-services.d/safedesk-rdp-audio /custom-services.d/safedesk-rdp-audio
-RUN chmod +x /custom-services.d/safedesk-rdp-audio
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    if [ "$ARCH" = "amd64" ]; then \
+      mkdir -p /usr/lib/pulse-17.0+dfsg1/modules/; \
+      cp /tmp/module-xrdp-sink.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-sink.so; \
+      cp /tmp/module-xrdp-source.so /usr/lib/pulse-17.0+dfsg1/modules/module-xrdp-source.so; \
+    fi; \
+    rm -f /tmp/module-xrdp-*.so; \
+    chmod +x /custom-services.d/safedesk-rdp-audio
 
 # --- Audio SafeDesk : setup init (client.conf + default.pa propre + nettoyage verrous) ---
 COPY files/custom-cont-init.d/safedesk-audio-setup /custom-cont-init.d/safedesk-audio-setup
