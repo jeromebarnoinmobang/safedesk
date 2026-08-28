@@ -1,0 +1,18 @@
+# Trousseau des navigateurs : deterministe, parce qu'un conteneur n'a pas de session.
+#
+# LE PROBLEME. Chromium choisit tout seul ou ranger la clef qui chiffre cookies et
+# mots de passe : kwallet s'il croit voir du KDE, gnome-keyring sinon. Les deux
+# supposent un trousseau DEVERROUILLE par une session de bureau — ce qu'un
+# conteneur n'a pas. Selon ce qu'il detecte au demarrage, le navigateur reclame un
+# mot de passe de trousseau que personne n'a jamais pose, ou echoue en silence a
+# relire ce qu'il a ecrit la veille. Symptome vu de l'exterieur : les comptes
+# Google « sautent » a chaque redemarrage, sans qu'aucun message ne l'explique.
+#
+# --password-store=basic tranche : la clef est derivee localement, sans trousseau.
+# La session tient d'un demarrage a l'autre.
+#
+# CE QUE CA COUTE, et il faut le dire : « basic » chiffre avec une clef fixe, donc
+# quiconque lit le volume /config peut dechiffrer les cookies. C'est deja vrai de
+# tout le reste du home, et .stignore garde ces fichiers LOCAUX a la machine — ils
+# ne partent ni sur le reseau ni chez un tiers. Le compromis est assume.
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"

@@ -52,6 +52,9 @@ services:
       # Le bus SYSTEME de l'hote : c'est par la que BlueZ se pilote.
       # En lecture-ecriture par necessite (un socket se parle dans les deux sens).
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      # Trousseau deterministe : sans lui, les comptes Google sautent a chaque
+      # redemarrage sans qu'aucun message ne l'explique. Voir le fichier.
+      - ./chromium.d/zz-mdp-basic:/etc/chromium.d/zz-mdp-basic:ro
     environment:
       # Explicite plutot que devine : certaines applications lisent cette variable
       # au lieu de supposer le chemin par defaut.

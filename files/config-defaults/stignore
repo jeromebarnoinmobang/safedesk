@@ -57,6 +57,31 @@
 /.config/google-chrome/GraphiteDawnCache
 /.config/google-chrome/Crashpad
 
+
+// --- Thorium (ARM64 : le Chrome des Raspberry Pi) : meme raison que ci-dessus ---
+//
+// Thorium est un Chromium : il a exactement les memes fichiers d'etat, et ils
+// posent exactement le meme probleme. Le profil ne vit PAS dans
+// .config/google-chrome — un profil ecrit par Chrome 151 est refuse net par un
+// Chromium 138 (« profil cree par une version plus recente »). Les deux
+// navigateurs cohabitent donc dans deux dossiers distincts, et chacun garde sa
+// session.
+/.config/thorium/Singleton*
+/.config/thorium/*/Cookies*
+/.config/thorium/Local State
+/.config/thorium/*/Local Storage
+/.config/thorium/*/Session Storage
+/.config/thorium/*/IndexedDB
+/.config/thorium/*/Service Worker
+/.config/thorium/*/Cache
+/.config/thorium/*/Code Cache
+/.config/thorium/*/GPUCache
+/.config/thorium/*/Sessions
+/.config/thorium/ShaderCache
+/.config/thorium/GrShaderCache
+/.config/thorium/GraphiteDawnCache
+/.config/thorium/Crashpad
+
 // --- divers etats de session de bureau ---
 /.XDG/KSMserver*
 /.cache

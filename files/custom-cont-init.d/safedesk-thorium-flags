@@ -1,0 +1,40 @@
+#!/usr/bin/with-contenv bash
+# THORIUM NE LIT PAS /etc/chromium.d — et ca se paie deux fois.
+#
+# Thorium est le substitut de Chrome sur ARM64 (Raspberry Pi). C'est un Chromium,
+# mais il arrive avec SON lanceur, qui ne source pas /etc/chromium.d comme le fait
+# le paquet Debian de chromium. Il lit un seul fichier :
+#   $XDG_CONFIG_HOME/thorium/thorium-flags.conf
+#
+# Consequence, silencieuse dans les deux cas :
+#
+#   1. LE PROFIL DE RENDU NE L'ATTEIGNAIT PAS. up-local.sh detecte la capacite GPU
+#      et monte chromium.d/zz-no-gpu (ou zz-gpu-*) sur /etc/chromium.d/zz-render.
+#      Ce fichier existe precisement parce que, sans GPU, la rasterisation GPU
+#      fait rendre des FENETRES BLANCHES. Chromium en profitait, Thorium non — le
+#      navigateur reellement utilise sur le Pi etait le seul a ne pas recevoir le
+#      correctif ecrit pour lui.
+#
+#   2. LE TROUSSEAU NON PLUS. Sans --password-store=basic, Chromium cherche
+#      kwallet ou gnome-keyring, qu'un conteneur n'a pas deverrouilles : les
+#      comptes Google « sautent » a chaque redemarrage sans message d'erreur.
+#
+# On ne duplique pas la liste des options : on SOURCE les memes fichiers que le
+# lanceur de Chromium, puis on ecrit le resultat la ou Thorium le lit. Une seule
+# source de verite — modifier chromium.d/ suffit pour les deux navigateurs.
+command -v thorium-browser >/dev/null 2>&1 || exit 0
+
+CHROMIUM_FLAGS=""
+for fichier in /etc/chromium.d/*; do
+    case "$fichier" in */README) continue ;; esac
+    [ -r "$fichier" ] && . "$fichier"
+done
+
+# `extensions` produit « --load-extension= » tout court quand le repertoire est
+# vide. Thorium refuse alors de demarrer sur un argument sans valeur.
+CHROMIUM_FLAGS=$(printf '%s' "$CHROMIUM_FLAGS" | sed 's/--load-extension=\( \|$\)/\1/g')
+
+install -d -o abc -g abc /config/.config/thorium
+printf '%s\n' "$CHROMIUM_FLAGS" > /config/.config/thorium/thorium-flags.conf
+chown abc:abc /config/.config/thorium/thorium-flags.conf
+echo "[safedesk] options Thorium derivees de /etc/chromium.d :$CHROMIUM_FLAGS"
