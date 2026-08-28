@@ -82,6 +82,27 @@
 /.config/thorium/GraphiteDawnCache
 /.config/thorium/Crashpad
 
+// --- caches de gestionnaires de paquets : reconstructibles, jamais a repliquer ---
+//
+// Mesure le 28/08/2026 sur le poste, en branchant le Raspberry Pi a la flotte :
+//   .bun/install/cache   2,8 Go   137 653 fichiers
+//   .npm/_cacache        988 Mo     3 101 fichiers
+//   .local/share/pnpm/store 659 Mo  47 919 fichiers
+// Soit ~4,4 Go et ~188 000 fichiers — plus d'entrees a elles seules que tout le
+// reste du home reuni. Syncthing indexe, hache et surveille chacune, sur CHAQUE
+// machine. Le Pi rampait a 40 Kio/s en traitant cet index, sans avoir encore
+// transfere le moindre octet utile.
+//
+// Rien de tout cela n'a de valeur : ce sont des archives telechargeables que npm,
+// bun et pnpm reconstruisent seuls a la premiere commande. C'est la meme raison
+// qui excluait deja /.cache — elle vaut pour ceux-la aussi, ils avaient simplement
+// ete oublies.
+/.npm/_cacache
+/.npm/_npx
+/.bun/install/cache
+/.local/share/pnpm/store
+/.cargo/registry
+
 // --- divers etats de session de bureau ---
 /.XDG/KSMserver*
 /.cache
