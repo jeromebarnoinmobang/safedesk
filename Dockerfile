@@ -156,6 +156,20 @@ RUN chmod +x /usr/local/share/safedesk/claude-hooks/* \
              /custom-cont-init.d/safedesk-brain-memory-guard \
              /usr/local/bin/push-transcripts /usr/local/bin/watch-vps \
              /custom-services.d/safedesk-transcript-sync
+
+# --- OpenWork : la chaine est un SERVICE, l icone n ouvre qu une fenetre ---
+#
+# Avant le 26/08/2026, le lanceur et son icone vivaient uniquement dans /config,
+# ecrits a la main, hors du depot. Consequence mesuree : la chaine ne repartait pas
+# au redemarrage du conteneur, et une panne a dure plus de 24 h derriere un front
+# qui rendait 200 en pointant sur une API en 502. Voir docs/PLAN-OPENWORK.md.
+COPY files/usr/local/bin/openwork-chaine /usr/local/bin/openwork-chaine
+COPY files/usr/local/bin/openwork-poste /usr/local/bin/openwork-poste
+COPY files/custom-services.d/safedesk-openwork /custom-services.d/safedesk-openwork
+COPY files/usr/share/applications/OpenWork.desktop /usr/share/applications/OpenWork.desktop
+COPY files/usr/share/icons/openwork.png /usr/share/icons/openwork.png
+RUN chmod +x /usr/local/bin/openwork-chaine /usr/local/bin/openwork-poste \
+             /custom-services.d/safedesk-openwork
 # Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
 # camera -> Images/Webcam du bureau)
 COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop

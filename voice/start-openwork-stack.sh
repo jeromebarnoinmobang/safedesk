@@ -1,69 +1,27 @@
 #!/bin/bash
-# start-openwork-stack.sh — démarrage IDEMPOTENT de la pile OpenWork complète.
-#   1. chaîne dev : fork opencode :14099 + serveur openwork :14877 + front :14880
-#      → délégué à workbench-docs/run-chaine-dev.sh (source de vérité, rien de dupliqué ici)
-#   2. voix : page discussion :8089 + TTS local :8200
-#      → délégué à start-voice-discussion.sh (même dossier)
-#   3. publication réseau : si front/serveur n'écoutent que sur 127.0.0.1 (cas du
-#      jumeau VPS où traefik doit joindre mobang-desktop:14880/14877 par le réseau
-#      docker second-brain), un forwarder node IP-conteneur:PORT → 127.0.0.1:PORT
-#      est lancé. Sans effet là où les ports sont déjà joignables.
+# RENVOI — ce script est REMPLACÉ depuis le 26/08/2026.
 #
-# Fichier SYNCHRONISÉ (Syncthing) : identique sur le fixe et le jumeau VPS.
-# Pas d'autostart système : décision Jérôme en attente — lancer ce script à la main.
-# Garde-fou : chaque bloc vérifie la santé AVANT d'agir (relançable sans risque).
-# Usage : ./start-openwork-stack.sh [stop]
-set -u
-export PATH="$HOME/.local/bin:$PATH"
-DIR="$(cd "$(dirname "$0")" && pwd)"
-CHAIN=/config/Projects/workbench/workbench-docs/run-chaine-dev.sh
-LOG=/tmp/safedesk-voice; mkdir -p "$LOG"
-
-code() { curl -s -o /dev/null -m 3 -w '%{http_code}' "$1" 2>/dev/null; }
-ok()   { [ "$(code "$1")" = "200" ]; }   # 200 attendu (health/front)
-up()   { [ "$(code "$1")" != "000" ]; }  # n'importe quelle réponse HTTP = ça écoute
-
-if [ "${1:-}" = "stop" ]; then
-  bash "$CHAIN" stop
-  bash "$DIR/start-voice-discussion.sh" stop
-  # forwarders éventuels (partagent les ports front/serveur)
-  fuser -k 14880/tcp 2>/dev/null; fuser -k 14877/tcp 2>/dev/null
-  echo "pile OpenWork arrêtée"
-  exit 0
-fi
-
-# --- 1. chaîne (fork + serveur + front) ---
-if ok http://127.0.0.1:14099/global/health && up http://127.0.0.1:14877/ && up http://127.0.0.1:14880/; then
-  echo "chaîne : déjà en route (14099/14877/14880) — skip"
-else
-  bash "$CHAIN" stop >/dev/null 2>&1; sleep 1
-  bash "$CHAIN"
-fi
-
-# --- 2. voix (page 8089 + TTS 8200) ---
-if ok http://127.0.0.1:8089/health; then
-  echo "voix : déjà en route (8089) — skip"
-else
-  bash "$DIR/start-voice-discussion.sh"
-fi
-
-# --- 3. publication sur l'IP du conteneur (jumeau : traefik → mobang-desktop:PORT) ---
-IP=$(hostname -i 2>/dev/null | awk '{print $1}')
-if [ -n "$IP" ] && [ "$IP" != "127.0.0.1" ]; then
-  for P in 14880 14877; do
-    if up "http://127.0.0.1:$P/" && ! up "http://$IP:$P/"; then
-      setsid node -e "
-        const net=require('net');
-        net.createServer(s=>{const c=net.connect($P,'127.0.0.1');
-          s.pipe(c).pipe(s);
-          s.on('error',()=>c.destroy());c.on('error',()=>s.destroy());
-        }).listen($P,'$IP',()=>console.log('publish $IP:$P -> 127.0.0.1:$P'));
-      " > "$LOG/publish-$P.log" 2>&1 &
-      for i in 1 2 3 4 5; do up "http://$IP:$P/" && break; sleep 1; done
-      up "http://$IP:$P/" && echo "publié : $IP:$P → 127.0.0.1:$P" \
-        || echo "ATTENTION : publication du port $P échouée (voir $LOG/publish-$P.log)"
-    fi
-  done
-fi
-
-echo "pile OpenWork prête : front http://127.0.0.1:14880 · voix http://127.0.0.1:8089/voice"
+# POURQUOI IL A ÉTÉ RETIRÉ, ET C'EST MESURÉ (audit du 26/08) :
+#
+#  1. Son contrôle de vie testait le port 14099 — celui de l'ancien fork LOCAL,
+#     abandonné le 25/08 au profit du tunnel :14098 vers le VPS. Deux mensonges
+#     symétriques : un zombie sur 14099 faisait dire « déjà en route », et une
+#     chaîne parfaitement saine faisait déclencher un stop+relance destructeur.
+#
+#  2. `up() { [ "$(code "$1")" != "000" ]; }` déclarait « en vie » N'IMPORTE QUELLE
+#     réponse HTTP — 502, 500, 401, 404 compris. Toute la classe de pannes réellement
+#     observée sur ce poste passait donc pour un succès.
+#
+#  3. Sa relance appelait le `stop` de run-chaine-dev.sh, incapable de tuer vite
+#     (motif `vite ` contre un processus nommé `vite.js`). Résultat : serveur tué,
+#     front périmé survivant, relance morte sur « Port 14880 is already in use » —
+#     et « pile OpenWork prête » imprimé quand même.
+#
+# Le remplaçant CONSTATE au lieu de déclarer : il lit dans /proc du vite vivant
+# l'API que le front appelle réellement, et vérifie que cette API répond.
+# Voir safedesk/docs/PLAN-OPENWORK.md.
+#
+# La chaîne est désormais un service s6 supervisé (`safedesk-openwork`) : elle monte
+# au démarrage du conteneur et se répare toutes les 30 s. Ce script n'a plus à
+# exister, mais il reste ici pour que rien qui l'appelait encore ne parte en silence.
+exec /usr/local/bin/openwork-chaine "${1:-etat}"

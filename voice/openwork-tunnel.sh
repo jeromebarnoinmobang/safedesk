@@ -1,29 +1,21 @@
 #!/bin/bash
-# openwork-tunnel.sh — expose OpenWork au téléphone via le VPS (openwork.mobang.fr).
-# Même principe que le tunnel du bureau (safedesk-home) : tunnel SSH INVERSE
-# sortant — rien d'ouvert sur la box. Deux ports remontent au VPS :
-#   14980 -> front OpenWork local (14880)      [openwork.mobang.fr]
-#   14977 -> serveur openwork local (14877)    [openwork-api.mobang.fr]
-#   14989 -> page vocale cerveau-claude (8089)  [voice.mobang.fr] — micro DU TELEPHONE
-# Traefik les joint via la passerelle docker (172.18.0.1), routes déclarées dans
-# /opt/mobang/traefik/dynamic/openwork.yml.
-# Usage : ./openwork-tunnel.sh          (boucle supervisée, relance auto)
-#         ./openwork-tunnel.sh stop
-set -u
-PIDF=/tmp/openwork-tunnel.pid
-if [ "${1:-}" = "stop" ]; then
-  [ -f $PIDF ] && kill "$(cat $PIDF)" 2>/dev/null && rm -f $PIDF && echo "tunnel arrêté" && exit 0
-  echo "pas de tunnel actif"; exit 0
-fi
-echo $$ > $PIDF
-echo "tunnel OpenWork -> mobang-prod (Ctrl-C ou './openwork-tunnel.sh stop' pour arrêter)"
-while true; do
-  ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-      -o ExitOnForwardFailure=yes -N \
-      -R '0.0.0.0:14980:127.0.0.1:14880' \
-      -R '0.0.0.0:14977:127.0.0.1:14877' \
-      -R '0.0.0.0:14989:127.0.0.1:8089' \
-      mobang-prod
-  echo "[openwork-tunnel] coupé — reconnexion dans 5s"
-  sleep 5
-done
+# RENVOI — ce script est REMPLACÉ depuis le 26/08/2026.
+#
+# POURQUOI IL A ÉTÉ RETIRÉ, ET C'EST MESURÉ (audit du 26/08) :
+#
+#  1. Sa boucle de supervision ne surveillait QUE la sortie de `ssh`. Une session ssh
+#     en parfaite santé qui redirige vers des ports locaux MORTS ne produisait aucune
+#     alerte : le poste se croyait publié pendant que openwork-api.mobang.fr,
+#     openwork.mobang.fr et voice.mobang.fr rendaient 502. C'est la panne du 25-26/08,
+#     et rien dans ce script n'avait de quoi la nommer.
+#
+#  2. `stop` tuait le SUPERVISEUR, pas le ssh. Le PID écrit dans le pidfile était
+#     celui de la boucle (`echo $$`) ; le `ssh -N` enfant survivait et continuait de
+#     tenir les trois ports distants. Le script imprimait « tunnel arrêté » et
+#     sortait 0. Toute relance mourait ensuite en boucle sous ExitOnForwardFailure,
+#     contre un orphelin invisible.
+#
+# Le tunnel inverse fait désormais partie de la chaîne (`openwork-chaine`), qui le
+# vérifie par ce qu'il TRANSPORTE et non par la survie de ssh, et qui ne publie plus
+# un renvoi vers un port éteint. Voir safedesk/docs/PLAN-OPENWORK.md.
+exec /usr/local/bin/openwork-chaine "${1:-etat}"
