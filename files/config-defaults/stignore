@@ -110,6 +110,25 @@
 /.local/share/pnpm/store
 /.cargo/registry
 
+// --- etats d'execution des OUTILS : locaux a la machine, comme les profils ---
+//
+// Meme raison que les profils de navigateur plus haut, et meme constat : une base
+// SQLite VIVANTE ne se replique pas entre deux machines qui tournent en meme
+// temps. Mesure du 28/08/2026 sur le poste : 406 fichiers .sync-conflict-* actifs,
+// dont un conflit sur la base runtime d'OpenWork cree le matin meme.
+//
+// Ce qui est exclu ici n'a aucune valeur ailleurs que sur la machine qui l'ecrit :
+//   openwork-app/tmp   la base runtime d'OpenWork, sa config generee et ses
+//                      journaux. OpenWork reconstruit tout au demarrage ; le
+//                      repliquer ne partage rien d'utile et corrompt la base.
+//   .local/share/opencode         sessions et base locale du moteur
+//   .local/share/klipper          historique du presse-papier KDE
+//   .local/share/pki/nssdb        trousseau de certificats NSS (comme kwalletd)
+/Projects/openwork-app/tmp
+/.local/share/opencode
+/.local/share/klipper
+/.local/share/pki/nssdb
+
 // --- divers etats de session de bureau ---
 /.XDG/KSMserver*
 /.cache
