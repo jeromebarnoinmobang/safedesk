@@ -17,5 +17,5 @@
 #
 # Le tunnel inverse fait désormais partie de la chaîne (`safework-chaine`), qui le
 # vérifie par ce qu'il TRANSPORTE et non par la survie de ssh, et qui ne publie plus
-# un renvoi vers un port éteint. Voir safedesk/docs/PLAN-OPENWORK.md.
+# un renvoi vers un port éteint. Voir safedesk/le depot prive safework, poste/docs/PLAN-OPENWORK.md.
 exec /usr/local/bin/safework-chaine "${1:-etat}"

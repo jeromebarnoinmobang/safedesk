@@ -19,7 +19,7 @@
 #
 # Le remplaçant CONSTATE au lieu de déclarer : il lit dans /proc du vite vivant
 # l'API que le front appelle réellement, et vérifie que cette API répond.
-# Voir safedesk/docs/PLAN-OPENWORK.md.
+# Voir safedesk/le depot prive safework, poste/docs/PLAN-OPENWORK.md.
 #
 # La chaîne est désormais un service s6 supervisé (`safedesk-safework`) : elle monte
 # au démarrage du conteneur et se répare toutes les 30 s. Ce script n'a plus à
