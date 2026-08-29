@@ -21,7 +21,7 @@
 # l'API que le front appelle réellement, et vérifie que cette API répond.
 # Voir safedesk/docs/PLAN-OPENWORK.md.
 #
-# La chaîne est désormais un service s6 supervisé (`safedesk-openwork`) : elle monte
+# La chaîne est désormais un service s6 supervisé (`safedesk-safework`) : elle monte
 # au démarrage du conteneur et se répare toutes les 30 s. Ce script n'a plus à
 # exister, mais il reste ici pour que rien qui l'appelait encore ne parte en silence.
-exec /usr/local/bin/openwork-chaine "${1:-etat}"
+exec /usr/local/bin/safework-chaine "${1:-etat}"

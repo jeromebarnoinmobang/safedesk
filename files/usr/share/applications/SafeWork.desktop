@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SafeWork
+Comment=Poste de travail IA — moteur DANS SafeDesk (il doit forker ici pour agir sur le poste)
+Exec=/usr/local/bin/safework-poste
+Icon=/usr/share/icons/safework.png
+Terminal=false
+Categories=Development;

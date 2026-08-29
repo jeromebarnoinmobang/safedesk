@@ -25,7 +25,7 @@ Le navigateur chargeait la page, tapait sur une URL en 502, et n'affichait rien.
 
 ### 1. Le contrôle de santé mentait
 
-`openwork-poste` testait `curl -sf http://127.0.0.1:14880`. Un front **périmé, pointé sur
+`safework-poste` testait `curl -sf http://127.0.0.1:14880`. Un front **périmé, pointé sur
 une API morte, rend 200**. Le lanceur voyait donc « tout va bien » et ne relançait jamais.
 
 > C'est le mode de panne que ce poste combat partout ailleurs : *une panne franche
@@ -73,7 +73,7 @@ Un front qui pointe sur une adresse morte est désormais **détecté et remplac�
 
 | avant | après |
 |---|---|
-| l'icône démarrait la chaîne | `safedesk-openwork` (s6) la monte et la **garde** |
+| l'icône démarrait la chaîne | `safedesk-safework` (s6) la monte et la **garde** |
 | rien ne repartait au redémarrage | s6 démarre le service à chaque boot du conteneur |
 | une mort silencieuse durait 24 h | boucle de contrôle toutes les 30 s, réparation automatique |
 | l'icône ne savait pas quoi faire | l'icône **ouvre une fenêtre**, rien d'autre |
@@ -108,10 +108,10 @@ Tout ce qui doit survivre à une reconstruction va **dans le dépôt `safedesk`*
 
 | fichier | rôle |
 |---|---|
-| `files/usr/local/bin/openwork-chaine` | **le** script de chaîne (état / assurer / relancer / stop) |
-| `files/usr/local/bin/openwork-poste` | le lanceur de l'icône — n'ouvre qu'une fenêtre |
-| `files/custom-services.d/safedesk-openwork` | le service s6 supervisé |
-| `files/usr/share/applications/OpenWork.desktop` | l'icône, posée par `desktop-shortcuts` |
+| `files/usr/local/bin/safework-chaine` | **le** script de chaîne (état / assurer / relancer / stop) |
+| `files/usr/local/bin/safework-poste` | le lanceur de l'icône — n'ouvre qu'une fenêtre |
+| `files/custom-services.d/safedesk-safework` | le service s6 supervisé |
+| `files/usr/share/applications/SafeWork.desktop` | l'icône, posée par `desktop-shortcuts` |
 | `Dockerfile` | les `COPY` correspondants |
 | `docker-compose.local.yml` | les montages, pour qu'une **recréation** suffise (sans rebuild) |
 
@@ -133,7 +133,7 @@ qu'un correctif écrit le 25/08 ne serve à rien.
 ## Comment on saura que c'est réparé
 
 ```bash
-openwork-chaine etat     # code retour 0, quatre maillons OK
+safework-chaine etat     # code retour 0, quatre maillons OK
 ```
 
 et, la seule preuve qui compte pour Jérôme : **l'icône ouvre une fenêtre où quelque chose

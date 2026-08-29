@@ -27,12 +27,12 @@ services:
       # conteneur suffise a appliquer une correction, sans attendre un rebuild.
       # C est ce qui manquait : le correctif du 25/08 vivait dans un script hors
       # depot, et n a jamais atteint le conteneur.
-      - ./files/usr/local/bin/openwork-chaine:/usr/local/bin/openwork-chaine:ro
-      - ./files/usr/local/bin/openwork-poste:/usr/local/bin/openwork-poste:ro
-      - ./files/custom-services.d/safedesk-openwork:/custom-services.d/safedesk-openwork:ro
+      - ./files/usr/local/bin/safework-chaine:/usr/local/bin/safework-chaine:ro
+      - ./files/usr/local/bin/safework-poste:/usr/local/bin/safework-poste:ro
+      - ./files/custom-services.d/safedesk-safework:/custom-services.d/safedesk-safework:ro
       - ./files/custom-services.d/desktop-shortcuts:/custom-services.d/desktop-shortcuts:ro
-      - ./files/usr/share/applications/OpenWork.desktop:/usr/share/applications/OpenWork.desktop:ro
-      - ./files/usr/share/icons/openwork.png:/usr/share/icons/openwork.png:ro
+      - ./files/usr/share/applications/SafeWork.desktop:/usr/share/applications/SafeWork.desktop:ro
+      - ./files/usr/share/icons/safework.png:/usr/share/icons/safework.png:ro
   home-sync:
     ports:
       - "127.0.0.1:8384:8384"     # GUI/API Syncthing (local dials out vers le VPS)

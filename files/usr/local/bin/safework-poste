@@ -1,5 +1,5 @@
 #!/bin/bash
-# openwork-poste — l'ICÔNE du bureau. Elle n'a qu'un travail : ouvrir la fenêtre.
+# safework-poste — l'ICÔNE du bureau. Elle n'a qu'un travail : ouvrir la fenêtre.
 #
 # CE QU'ELLE NE FAIT PLUS, ET POURQUOI (26/08/2026)
 #
@@ -12,7 +12,7 @@
 #      PÉRIMÉ, pointé sur une API morte, rend 200. Le 25-26/08, elle a donc jugé
 #      « tout va bien » pendant plus de 24 h devant une fenêtre vide.
 #
-# Désormais la chaîne est un service supervisé (`safedesk-openwork`, s6) qui la
+# Désormais la chaîne est un service supervisé (`safedesk-safework`, s6) qui la
 # monte au démarrage et la répare toutes les 30 s. L'icône se contente d'attendre
 # qu'elle soit prête — et de le DIRE si elle ne l'est pas, au lieu d'ouvrir une
 # fenêtre blanche.
@@ -21,8 +21,8 @@ set -u
 export HOME=${HOME:-/config}
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
-CHAINE=/usr/local/bin/openwork-chaine
-[ -x "$CHAINE" ] || CHAINE=/config/.local/bin/openwork-chaine
+CHAINE=/usr/local/bin/safework-chaine
+[ -x "$CHAINE" ] || CHAINE=/config/.local/bin/safework-chaine
 FRONT=http://127.0.0.1:14880
 
 # Le service a normalement déjà tout monté. S'il ne tourne pas (conteneur ancien,

@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=OpenWork
-Comment=Poste de travail IA (moteur opencode sur le VPS)
-Exec=/usr/local/bin/openwork-poste
-Icon=/usr/share/icons/openwork.png
-Terminal=false
-Categories=Development;

@@ -8,7 +8,7 @@
 # maillon mourait, rien ne le relevait — le 25-26/08, une panne a duré plus de
 # 24 h derrière un front qui répondait 200 en pointant sur une API en 502.
 #
-# Ici, s6 supervise. Toutes les 30 s, `openwork-chaine assurer` CONSTATE chaque
+# Ici, s6 supervise. Toutes les 30 s, `safework-chaine assurer` CONSTATE chaque
 # maillon et ne répare que ce qui manque. Le contrôle ne se contente pas d'un 200
 # sur le front : il lit, dans /proc du processus vite vivant, l'API que le front
 # appelle réellement, et vérifie que cette API répond.
@@ -22,8 +22,8 @@
 # DÉSACTIVATION : poser /config/.config/safedesk/openwork.off
 
 INTERVALLE=${OPENWORK_ASSURER_INTERVAL:-30}
-CHAINE=/usr/local/bin/openwork-chaine
-[ -x "$CHAINE" ] || CHAINE=/config/.local/bin/openwork-chaine
+CHAINE=/usr/local/bin/safework-chaine
+[ -x "$CHAINE" ] || CHAINE=/config/.local/bin/safework-chaine
 
 ENV_OC=/config/.config/safedesk/opencode-vps.env
 ENV_OW=/config/.config/safedesk/openwork.env
@@ -34,7 +34,7 @@ mkdir -p "$ETAT"
 chown -R abc:abc "$ETAT" 2>/dev/null
 
 if [ ! -x "$CHAINE" ]; then
-  echo "[openwork] openwork-chaine introuvable — service inactif"
+  echo "[openwork] safework-chaine introuvable — service inactif"
   sleep infinity
 fi
 

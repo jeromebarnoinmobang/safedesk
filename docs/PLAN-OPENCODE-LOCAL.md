@@ -37,7 +37,7 @@ Le 25/08, opencode a été sorti de SafeDesk pour une raison précise et bonne :
 
 > Mais ce n'était pas un défaut de l'endroit. C'était une **absence de supervision**.
 
-Elle existe depuis le 26/08 : `safedesk-openwork` (s6) constate et répare toutes les
+Elle existe depuis le 26/08 : `safedesk-safework` (s6) constate et répare toutes les
 30 s, et a remonté une chaîne entièrement démontée **en 15 secondes**, sans
 intervention.
 
@@ -69,7 +69,7 @@ Quatre angles, avec un sceptique par constat (workflow `wf_3a3e0b9b`) :
 
 Le binaire est déjà là (`safework-server/packages/opencode/dist/opencode-linux-x64/bin/`,
 compilé ce matin), `claude` aussi (2.1.233). Service s6 sur le modèle de
-`safedesk-openwork`, et **le contrôle de santé teste une inférence, pas un `/health`** —
+`safedesk-safework`, et **le contrôle de santé teste une inférence, pas un `/health`** —
 c'est le 25/08 qui l'a appris : un serveur peut rendre 200 avec une configuration morte.
 
 ### C2 — la configuration du poste
@@ -92,7 +92,7 @@ de sens. »** Un seul moteur, sur le poste, là où sont les fichiers.
 **MAIS L'ORDRE N'EST PAS CELUI DE LA PHRASE, ET C'EST LE POINT LE PLUS IMPORTANT DE CE
 PLAN.**
 
-Aujourd'hui la chaîne OpenWork ne tient QUE par opencode du VPS : `openwork-chaine`
+Aujourd'hui la chaîne OpenWork ne tient QUE par opencode du VPS : `safework-chaine`
 ouvre un tunnel vers lui, et le serveur openwork ne parle qu'à ça. Le retirer d'abord,
 c'est se retrouver sans OpenWork du tout, avec un moteur local qui n'existe pas encore.
 
@@ -101,7 +101,7 @@ Séquence, et on ne l'inverse pas :
 | | | on ne passe à la suite que si |
 |---|---|---|
 | 1 | opencode local dans SafeDesk, supervisé | une **inférence réelle** aboutit, pas un `/health` |
-| 2 | `openwork-chaine` bascule sur lui | les 5 maillons OK, `etat` rend 0 |
+| 2 | `safework-chaine` bascule sur lui | les 5 maillons OK, `etat` rend 0 |
 | 3 | épreuve de bout en bout | outils, permissions, graphe franchi, et une tâche réelle sur `/config/Projects` |
 | 4 | **alors** on retire le VPS | et pas avant |
 

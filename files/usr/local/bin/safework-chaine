@@ -1,5 +1,5 @@
 #!/bin/bash
-# openwork-chaine — monte et GARDE la chaîne OpenWork du poste SafeDesk.
+# safework-chaine — monte et GARDE la chaîne OpenWork du poste SafeDesk.
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # POURQUOI CE SCRIPT EXISTE (26/08/2026)
@@ -20,10 +20,10 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Usage :
-#   openwork-chaine etat        état des maillons ; code retour 0 si tout tient
-#   openwork-chaine assurer     répare ce qui manque (idempotent) — c'est le service
-#   openwork-chaine relancer    tue tout et remonte
-#   openwork-chaine stop        arrête tout, moteur compris
+#   safework-chaine etat        état des maillons ; code retour 0 si tout tient
+#   safework-chaine assurer     répare ce qui manque (idempotent) — c'est le service
+#   safework-chaine relancer    tue tout et remonte
+#   safework-chaine stop        arrête tout, moteur compris
 #
 # Variables :
 #   OPENWORK_TEL=0   désactive le volet téléphone (front 14881 + tunnel inverse)
@@ -138,7 +138,7 @@ charger_env() {
   # LES IDENTIFIANTS DU MOTEUR LOCAL SE FABRIQUENT ICI, UNE FOIS, ET NE S AFFICHENT
   # JAMAIS. C est ce que fait le produit lui-meme (managed-opencode.ts genere un
   # couple aleatoire a chaque demarrage). On les garde dans un fichier 0600 plutot
-  # qu en memoire parce que `openwork-chaine etat`, lance a la main, doit pouvoir
+  # qu en memoire parce que `safework-chaine etat`, lance a la main, doit pouvoir
   # interroger un moteur deja demarre.
   #
   # NOUVEAU FICHIER, PAS CELUI DU VPS : le mot de passe d opencode-vps a ete
@@ -272,7 +272,7 @@ poser_serveur() {
   mkdir -p "$RUN/t3-workspace" "$LOG"
   [ -f "$RUN/t3-server.json" ] || echo '{}' > "$RUN/t3-server.json"
   # `exec` N EST PAS COSMÉTIQUE : sans lui, le sous-shell reste vivant comme parent
-  # du serveur, et `pgrep -f openwork-chaine` compte des coquilles vides. Un
+  # du serveur, et `pgrep -f safework-chaine` compte des coquilles vides. Un
   # inventaire de processus qui ment est la première marche vers un diagnostic faux.
   # Avec `exec`, le sous-shell DEVIENT le processus : un lancé, un vu.
   # `</dev/null` : un démon qui garde stdin ouvert vole l entrée de son lanceur.
@@ -432,5 +432,5 @@ case "${1:-etat}" in
   assurer)  cmd_assurer && cmd_etat ;;
   relancer) cmd_stop; charger_env && cmd_assurer && cmd_etat ;;
   stop)     cmd_stop ;;
-  *) echo "usage: openwork-chaine {etat|assurer|relancer|stop}" >&2; exit 64 ;;
+  *) echo "usage: safework-chaine {etat|assurer|relancer|stop}" >&2; exit 64 ;;
 esac

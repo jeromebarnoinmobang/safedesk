@@ -15,7 +15,7 @@
 #     sortait 0. Toute relance mourait ensuite en boucle sous ExitOnForwardFailure,
 #     contre un orphelin invisible.
 #
-# Le tunnel inverse fait désormais partie de la chaîne (`openwork-chaine`), qui le
+# Le tunnel inverse fait désormais partie de la chaîne (`safework-chaine`), qui le
 # vérifie par ce qu'il TRANSPORTE et non par la survie de ssh, et qui ne publie plus
 # un renvoi vers un port éteint. Voir safedesk/docs/PLAN-OPENWORK.md.
-exec /usr/local/bin/openwork-chaine "${1:-etat}"
+exec /usr/local/bin/safework-chaine "${1:-etat}"

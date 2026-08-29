@@ -3,11 +3,11 @@
 #
 # OpenWork (26/08/2026) : l icone vivait UNIQUEMENT dans /config/Desktop, ecrite a
 # la main. Elle survivait a un redemarrage (le home est un volume) mais PAS a une
-# reinstallation — et elle pointait sur /config/.local/bin/openwork-poste, hors du
+# reinstallation — et elle pointait sur /config/.local/bin/safework-poste, hors du
 # depot. Deux copies hors depot d une meme chose : la definition meme de la derive.
 # Elle est desormais dans l image, et posee ici.
 mkdir -p /config/Desktop
-for name in safedesk-qr OpenWork; do
+for name in safedesk-qr SafeWork; do
   src="/usr/share/applications/$name.desktop"
   dst="/config/Desktop/$name.desktop"
   if [ -f "$src" ] && [ ! -f "$dst" ]; then

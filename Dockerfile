@@ -163,13 +163,13 @@ RUN chmod +x /usr/local/share/safedesk/claude-hooks/* \
 # ecrits a la main, hors du depot. Consequence mesuree : la chaine ne repartait pas
 # au redemarrage du conteneur, et une panne a dure plus de 24 h derriere un front
 # qui rendait 200 en pointant sur une API en 502. Voir docs/PLAN-OPENWORK.md.
-COPY files/usr/local/bin/openwork-chaine /usr/local/bin/openwork-chaine
-COPY files/usr/local/bin/openwork-poste /usr/local/bin/openwork-poste
-COPY files/custom-services.d/safedesk-openwork /custom-services.d/safedesk-openwork
-COPY files/usr/share/applications/OpenWork.desktop /usr/share/applications/OpenWork.desktop
-COPY files/usr/share/icons/openwork.png /usr/share/icons/openwork.png
-RUN chmod +x /usr/local/bin/openwork-chaine /usr/local/bin/openwork-poste \
-             /custom-services.d/safedesk-openwork
+COPY files/usr/local/bin/safework-chaine /usr/local/bin/safework-chaine
+COPY files/usr/local/bin/safework-poste /usr/local/bin/safework-poste
+COPY files/custom-services.d/safedesk-safework /custom-services.d/safedesk-safework
+COPY files/usr/share/applications/SafeWork.desktop /usr/share/applications/SafeWork.desktop
+COPY files/usr/share/icons/safework.png /usr/share/icons/safework.png
+RUN chmod +x /usr/local/bin/safework-chaine /usr/local/bin/safework-poste \
+             /custom-services.d/safedesk-safework
 # Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
 # camera -> Images/Webcam du bureau)
 COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop
