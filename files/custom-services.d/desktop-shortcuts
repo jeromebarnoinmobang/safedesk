@@ -1,13 +1,16 @@
 #!/usr/bin/with-contenv bash
 # Pose les icones SafeDesk sur le bureau de l utilisateur (une fois, idempotent).
 #
-# OpenWork (26/08/2026) : l icone vivait UNIQUEMENT dans /config/Desktop, ecrite a
-# la main. Elle survivait a un redemarrage (le home est un volume) mais PAS a une
-# reinstallation — et elle pointait sur /config/.local/bin/safework-poste, hors du
-# depot. Deux copies hors depot d une meme chose : la definition meme de la derive.
-# Elle est desormais dans l image, et posee ici.
+# L icone SafeWork n est plus posee ici depuis le 29/08/2026 : elle est partie avec
+# la chaine dans le depot PRIVE `safework` (dossier poste/), parce que ce depot-ci
+# est public. Elle est posee par `poste/installer.sh`.
+#
+# La lecon de 26/08 reste : une icone ecrite a la main dans /config/Desktop survit a
+# un redemarrage mais pas a une reinstallation, et deux copies hors depot d une meme
+# chose sont la definition meme de la derive. C est pour ca qu elle est versionnee —
+# simplement dans l autre depot.
 mkdir -p /config/Desktop
-for name in safedesk-qr SafeWork; do
+for name in safedesk-qr; do
   src="/usr/share/applications/$name.desktop"
   dst="/config/Desktop/$name.desktop"
   if [ -f "$src" ] && [ ! -f "$dst" ]; then

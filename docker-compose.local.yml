@@ -23,16 +23,10 @@ services:
       - ./files/custom-services.d/safedesk-rdp-audio:/custom-services.d/safedesk-rdp-audio:ro
       - ./files/custom-cont-init.d/safedesk-sync-ignores:/custom-cont-init.d/safedesk-sync-ignores:ro
       - ./files/config-defaults/stignore:/defaults/stignore:ro
-      # OpenWork (26/08/2026) : monte par-dessus l image pour qu une RECREATION du
-      # conteneur suffise a appliquer une correction, sans attendre un rebuild.
-      # C est ce qui manquait : le correctif du 25/08 vivait dans un script hors
-      # depot, et n a jamais atteint le conteneur.
-      - ./files/usr/local/bin/safework-chaine:/usr/local/bin/safework-chaine:ro
-      - ./files/usr/local/bin/safework-poste:/usr/local/bin/safework-poste:ro
-      - ./files/custom-services.d/safedesk-safework:/custom-services.d/safedesk-safework:ro
+      # SafeWork retire de ce depot le 29/08/2026 (il est PUBLIC) : la chaine vit
+      # maintenant dans le depot prive `safework`, dossier `poste/`. Pour la monter
+      # par-dessus l image en developpement, ajouter les montages depuis ce depot-la.
       - ./files/custom-services.d/desktop-shortcuts:/custom-services.d/desktop-shortcuts:ro
-      - ./files/usr/share/applications/SafeWork.desktop:/usr/share/applications/SafeWork.desktop:ro
-      - ./files/usr/share/icons/safework.png:/usr/share/icons/safework.png:ro
   home-sync:
     ports:
       - "127.0.0.1:8384:8384"     # GUI/API Syncthing (local dials out vers le VPS)

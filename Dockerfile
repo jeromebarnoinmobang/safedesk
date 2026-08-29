@@ -157,19 +157,20 @@ RUN chmod +x /usr/local/share/safedesk/claude-hooks/* \
              /usr/local/bin/push-transcripts /usr/local/bin/watch-vps \
              /custom-services.d/safedesk-transcript-sync
 
-# --- OpenWork : la chaine est un SERVICE, l icone n ouvre qu une fenetre ---
+# --- SafeWork : RETIRE DE CE DEPOT le 29/08/2026 ---
 #
-# Avant le 26/08/2026, le lanceur et son icone vivaient uniquement dans /config,
-# ecrits a la main, hors du depot. Consequence mesuree : la chaine ne repartait pas
-# au redemarrage du conteneur, et une panne a dure plus de 24 h derriere un front
-# qui rendait 200 en pointant sur une API en 502. Voir docs/PLAN-OPENWORK.md.
-COPY files/usr/local/bin/safework-chaine /usr/local/bin/safework-chaine
-COPY files/usr/local/bin/safework-poste /usr/local/bin/safework-poste
-COPY files/custom-services.d/safedesk-safework /custom-services.d/safedesk-safework
-COPY files/usr/share/applications/SafeWork.desktop /usr/share/applications/SafeWork.desktop
-COPY files/usr/share/icons/safework.png /usr/share/icons/safework.png
-RUN chmod +x /usr/local/bin/safework-chaine /usr/local/bin/safework-poste \
-             /custom-services.d/safedesk-safework
+# La chaine SafeWork (son lanceur, son service s6, son icone) vivait ici depuis le
+# 26/08. Or CE DEPOT EST PUBLIC. Aucun secret n y etait en clair, mais la topologie
+# privee l etait : openwork-api.mobang.fr, second-brain.mobang.fr, l alias SSH du
+# VPS, les ports internes et les tunnels inverses.
+#
+# Elle vit desormais dans le depot PRIVE `safework`, dossier `poste/`, et s installe
+# par `sudo poste/installer.sh`. L image publique ne sait plus rien de SafeWork.
+#
+# Ce qui reste vrai et qui avait motive de la mettre ici : un lanceur qui vit hors
+# depot ne recoit jamais les correctifs (mesure le 25/08, une panne de plus de 24 h).
+# La reponse n est plus « dans l image publique » mais « dans le depot prive, pose
+# par un installateur ».
 # Icone Camera : page /voice/cam du shim (photo depuis l appareil qui a la
 # camera -> Images/Webcam du bureau)
 COPY files/usr/share/applications/safedesk-camera.desktop /usr/share/applications/safedesk-camera.desktop
