@@ -14,7 +14,7 @@ avoir les mêmes capacités d'agir sur mon poste physique. »*
 Et sa contestation, qui était juste : *« opencode ne fonctionne pas comme tu le dis,
 parce qu'on le selfhost mais normalement c'est un serveur du SaaS. »*
 
-**Preuve — `openwork-app/apps/server/src/managed-opencode.ts:158` :**
+**Preuve — `safework/apps/server/src/managed-opencode.ts:158` :**
 
 ```ts
 const child = spawn(options.bin?.trim() || "opencode",
@@ -67,7 +67,7 @@ Quatre angles, avec un sceptique par constat (workflow `wf_3a3e0b9b`) :
 
 ### C1 — opencode dans SafeDesk, supervisé dès le premier jour
 
-Le binaire est déjà là (`workbench/packages/opencode/dist/opencode-linux-x64/bin/`,
+Le binaire est déjà là (`safework-server/packages/opencode/dist/opencode-linux-x64/bin/`,
 compilé ce matin), `claude` aussi (2.1.233). Service s6 sur le modèle de
 `safedesk-openwork`, et **le contrôle de santé teste une inférence, pas un `/health`** —
 c'est le 25/08 qui l'a appris : un serveur peut rendre 200 avec une configuration morte.
@@ -118,7 +118,7 @@ en une commande tant que Jérôme n'a pas vécu quelques jours avec.
 
 ### C5 — ce qu'il ne faut pas perdre en chemin
 
-- les **sessions** (`opencode-workbench.db`) vivent dans un volume côté VPS ; côté poste
+- les **sessions** (`opencode-safework-server.db`) vivent dans un volume côté VPS ; côté poste
   elles iront dans `/config`, qui persiste ;
 - les **clés de déploiement** posées ce matin sont sur le VPS. Si le travail passe sur
   le poste, les dépôts y sont **déjà**, en clair, avec les vrais remotes — plus besoin de

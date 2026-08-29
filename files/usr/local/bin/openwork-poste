@@ -43,7 +43,7 @@ if ! "$CHAINE" etat >/dev/null 2>&1; then
 $DETAIL
 
 Journal : /config/.local/state/safedesk/openwork.log
-Détail  : /config/Projects/openwork-app/tmp/logs/"
+Détail  : /config/Projects/safework/tmp/logs/"
   if command -v kdialog >/dev/null 2>&1; then
     kdialog --title "OpenWork" --error "$MSG"
   elif command -v zenity >/dev/null 2>&1; then

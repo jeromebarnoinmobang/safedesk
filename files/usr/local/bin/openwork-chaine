@@ -38,7 +38,7 @@ set -u
 export HOME=${HOME:-/config}
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
-APP=/config/Projects/openwork-app
+APP=/config/Projects/safework
 RUN=$APP/tmp
 LOG=$RUN/logs
 
@@ -82,7 +82,7 @@ VPS=mobang-prod
 # ne les a pas. `/usr/local/bin` d'abord (posé par l'image), le dist du fork
 # ensuite (poste de développement, binaire fraîchement compilé).
 BINAIRE_OC=/usr/local/bin/opencode
-[ -x "$BINAIRE_OC" ] || BINAIRE_OC=/config/Projects/workbench/packages/opencode/dist/opencode-linux-x64/bin/opencode
+[ -x "$BINAIRE_OC" ] || BINAIRE_OC=/config/Projects/safework-server/packages/opencode/dist/opencode-linux-x64/bin/opencode
 
 CONF_OC=/config/.config/opencode/opencode.jsonc
 ENV_OC_POSTE=/config/.config/safedesk/opencode-poste.env   # OPENCODE_SERVER_USERNAME/PASSWORD
@@ -216,7 +216,7 @@ telephone_actif() { [ "${OPENWORK_TEL:-1}" = "1" ]; }
 poser_opencode() {
   [ -x "$BINAIRE_OC" ] || {
     dire "ÉCHEC : binaire opencode introuvable ($BINAIRE_OC). Compiler le fork :"
-    dire "        cd /config/Projects/workbench/packages/opencode && bun run script/build.ts --single"
+    dire "        cd /config/Projects/safework-server/packages/opencode && bun run script/build.ts --single"
     return 1
   }
   tuer_le_port "$PORT_OC"

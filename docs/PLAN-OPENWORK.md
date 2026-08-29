@@ -14,7 +14,7 @@ le repository, au redémarrage de safedesk il faut que ce soit fonctionnel. »*
 | il pointe sur l'API **publique** | `tr '\0' '\n' < /proc/1391309/environ` → `VITE_OPENWORK_URL=https://openwork-api.mobang.fr` |
 | cette API est **morte** | `curl https://openwork-api.mobang.fr/health` → **502** |
 | l'API **locale** est vivante | `curl http://127.0.0.1:14877/health` → `{"ok":true,"opencodeVersion":"1.18.18"}` |
-| opencode du VPS est vivant | `curl -u … http://127.0.0.1:14098/global/health` → `{"healthy":true,"version":"0.0.0-workbench-202608251700"}` |
+| opencode du VPS est vivant | `curl -u … http://127.0.0.1:14098/global/health` → `{"healthy":true,"version":"0.0.0-safework-server-202608251700"}` |
 | le tunnel **inverse** est mort | `pgrep -af "ssh.*-R"` → rien |
 | la relance du 25/08 a échoué | `tmp/logs/front.log` → `Error: Port 14880 is already in use` |
 
@@ -115,7 +115,7 @@ Tout ce qui doit survivre à une reconstruction va **dans le dépôt `safedesk`*
 | `Dockerfile` | les `COPY` correspondants |
 | `docker-compose.local.yml` | les montages, pour qu'une **recréation** suffise (sans rebuild) |
 
-`workbench-docs/run-chaine-dev.sh` devient un **renvoi** vers le script canonique : deux
+`safework-docs/run-chaine-dev.sh` devient un **renvoi** vers le script canonique : deux
 copies du même script sont une source de dérive, et c'est exactement ce qui a permis
 qu'un correctif écrit le 25/08 ne serve à rien.
 
@@ -125,7 +125,7 @@ qu'un correctif écrit le 25/08 ne serve à rien.
 
 - **On ne passe pas vite en build statique.** Ce serait plus robuste et moins cher, mais
   c'est une refonte ; la demande est de réparer.
-- **On ne touche pas au code de `openwork-app`.** Le défaut n'est pas dans l'application.
+- **On ne touche pas au code de `safework`.** Le défaut n'est pas dans l'application.
 - **On ne redémarre pas le conteneur.** Les fichiers sont posés à la fois dans le dépôt
   *et* dans le conteneur vivant, et le service est démarré à la main : le résultat est
   vrai maintenant **et** au prochain démarrage.
