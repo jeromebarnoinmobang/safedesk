@@ -19,7 +19,16 @@
 set -u
 
 ENV_FILE=${ALERTE_ENV:-/config/.config/safedesk/alerte.env}
-HOST=${TRANSCRIPT_HOST:-mobang-prod}
+# La machine surveillee ne se devine pas et n'a pas de valeur par defaut : ce depot
+# est PUBLIC. Elle se lit dans l'environnement, sinon dans la config locale.
+HOTES=${SAFEDESK_HOTES:-/config/.config/safedesk/hotes.env}
+HOST=${TRANSCRIPT_HOST:-$([ -r "$HOTES" ] && sed -n 's/^TRANSCRIPT_HOST=//p' "$HOTES" | head -1)}
+[ -n "$HOST" ] || {
+  echo "TRANSCRIPT_HOST absent — pose-le dans l'environnement, ou mets" >&2
+  echo "  TRANSCRIPT_HOST=<hote-ssh>" >&2
+  echo "dans $HOTES" >&2
+  exit 1
+}
 JOURNAL_DISTANT=/opt/mobang/scripts/.sonde-journal
 ETAT=${WATCH_ETAT:-/config/.local/state/safedesk/watch-vps.etat}
 SEUIL_MIN=${WATCH_SEUIL_MIN:-60}          # la sonde tourne toutes les 15 min
@@ -91,8 +100,8 @@ fi
 if [ "$cur" = "KO" ]; then
   if [ "$anc" != "KO" ] || [ $((MAINTENANT - dernier_mail)) -ge "$RAPPEL_S" ]; then
     envoie "[SafeDesk] LA SURVEILLANCE EST AVEUGLE" \
-"$(printf 'Alerte emise par %s le %s (PAS par le VPS — c est justement le probleme).\n\n%s\n\nCONSEQUENCE : plus aucune alerte ne peut partir du VPS. Tout peut etre casse sans que rien ne te previenne, jusqu a ce que ce soit repare.\n\nA VERIFIER :\n  1. le VPS repond-il ?   ssh mobang-prod\n  2. la crontab est-elle la ?   ssh mobang-prod crontab -l\n  3. essai a la main :   ssh mobang-prod bash /opt/mobang/scripts/sonde.sh --dry-run' \
-  "$(hostname)" "$(date '+%Y-%m-%d %H:%M')" "$motif")"
+"$(printf 'Alerte emise par %s le %s (PAS par le VPS — c est justement le probleme).\n\n%s\n\nCONSEQUENCE : plus aucune alerte ne peut partir du VPS. Tout peut etre casse sans que rien ne te previenne, jusqu a ce que ce soit repare.\n\nA VERIFIER :\n  1. le VPS repond-il ?   ssh %s\n  2. la crontab est-elle la ?   ssh %s crontab -l\n  3. essai a la main :   ssh %s bash /opt/mobang/scripts/sonde.sh --dry-run' \
+  "$(hostname)" "$(date '+%Y-%m-%d %H:%M')" "$motif" "$HOST" "$HOST" "$HOST")"
     dernier_mail=$MAINTENANT
   fi
 else

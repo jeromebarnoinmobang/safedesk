@@ -1,5 +1,22 @@
 # SafeDesk Appliance
 
+> ### ⚠️ Ce dossier est un DEPLOIEMENT REEL, pas un gabarit
+>
+> Contrairement au reste du depot, `appliance/` decrit **la machine de l auteur** :
+> `setup.sh`, `safedesk-tunnel.service` et `safedesk-tunnel-check` portent son URL
+> publique, son nom de conteneur et son materiel exact.
+>
+> **Pour ton propre appareil : copie ce dossier et remplace ces valeurs.** Le lire tel
+> quel a de la valeur — c est une installation qui marche, de bout en bout, avec les
+> raisons de chaque etape. Le lancer tel quel n en a aucune : il pointerait sur une
+> infrastructure qui n est pas la tienne.
+>
+> Le reste du depot, lui, ne suppose aucune machine particuliere. Les deux outils qui
+> parlaient a un serveur precis (`files/usr/local/bin/brain-skills` et `watch-vps`) ont
+> ete neutralises le 01/09/2026 : ils lisent leur adresse dans la configuration locale,
+> et **echouent avec un message clair** si elle manque, au lieu de tomber sur une valeur
+> personnelle.
+
 Transforme un PC en **terminal SafeDesk** : au demarrage, Docker lance le conteneur
 `mobang-desktop` et une session graphique ouvre le bureau KDE en **RDP plein ecran**
 (127.0.0.1:3389). Tout est local -> faible latence ; le `/config` du bureau reste

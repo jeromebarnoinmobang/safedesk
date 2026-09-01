@@ -13,7 +13,17 @@
 # Usage : push-transcripts [--dry-run]
 set -u
 
-HOST=${TRANSCRIPT_HOST:-mobang-prod}
+# La machine cible ne se devine pas et n'a pas de valeur par defaut : ce depot est
+# PUBLIC, et un defaut personnel ferait pointer le clone d'un inconnu sur nos
+# machines. Elle se lit dans l'environnement, sinon dans la config locale.
+HOTES=${SAFEDESK_HOTES:-/config/.config/safedesk/hotes.env}
+HOST=${TRANSCRIPT_HOST:-$([ -r "$HOTES" ] && sed -n 's/^TRANSCRIPT_HOST=//p' "$HOTES" | head -1)}
+[ -n "$HOST" ] || {
+  echo "TRANSCRIPT_HOST absent — pose-le dans l'environnement, ou mets" >&2
+  echo "  TRANSCRIPT_HOST=<hote-ssh>" >&2
+  echo "dans $HOTES" >&2
+  exit 1
+}
 SRC=${TRANSCRIPT_SRC:-/config/.claude/projects}
 DEST=${TRANSCRIPT_DEST:-/opt/mobang/fleet-data/desktop-linux}
 DRY=0

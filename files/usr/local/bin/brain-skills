@@ -24,8 +24,36 @@ import sys
 import urllib.error
 import urllib.request
 
-BASE = os.environ.get("SECOND_BRAIN_URL", "https://second-brain.mobang.fr")
 SKILLS_DIR = os.path.expanduser("~/.claude/skills")
+CFG = os.path.expanduser("~/.config/Claude/claude_desktop_config.json")
+
+
+def _entree_mcp() -> dict:
+    """L'entrée `second-brain` de la config Claude Desktop — la source unique."""
+    servers = json.load(open(CFG))["mcpServers"]
+    return servers.get("second-brain") or servers.get("secondbrain")
+
+
+def base() -> str:
+    """URL du brain : env d'abord, sinon la config Claude Desktop (source unique).
+
+    PAS DE VALEUR PAR DÉFAUT. Ce dépôt est public : une adresse écrite ici ferait
+    pointer le clone d'un inconnu sur notre brain. Elle se déduit donc de la même
+    configuration locale que le jeton, juste en dessous — un seul endroit à tenir.
+    """
+    url = os.environ.get("SECOND_BRAIN_URL", "").strip().rstrip("/")
+    if url:
+        return url
+    try:
+        args = _entree_mcp()["args"]
+        brut = next(a for a in args if isinstance(a, str) and a.startswith("http"))
+        # l'argument porte le chemin du pont MCP : on ne garde que l'origine
+        return re.match(r"(https?://[^/]+)", brut).group(1)
+    except Exception as exc:
+        sys.exit(f"URL du brain introuvable ({exc}) — pose SECOND_BRAIN_URL")
+
+
+BASE = base()
 
 
 def token() -> str:
@@ -33,11 +61,8 @@ def token() -> str:
     tok = os.environ.get("SECOND_BRAIN_MCP_TOKEN", "").replace("Bearer ", "").strip()
     if tok:
         return tok
-    cfg = os.path.expanduser("~/.config/Claude/claude_desktop_config.json")
     try:
-        servers = json.load(open(cfg))["mcpServers"]
-        entry = servers.get("second-brain") or servers.get("secondbrain")
-        args = entry["args"]
+        args = _entree_mcp()["args"]
         header = args[args.index("--header") + 1]
         return header.split("Bearer", 1)[1].strip()
     except Exception as exc:
