@@ -27,8 +27,12 @@
 # À N'APPLIQUER QUE CÔTÉ VPS : c'est lui qui reçoit la connexion. Le côté
 # SafeDesk l'initie et n'a donc aucun port à publier.
 # ═══════════════════════════════════════════════════════════════════════════
+# ⚠ PORT 22001 CÔTÉ HÔTE, ET NON 22000 : le VPS fait tourner DEUX Syncthing —
+# `syncthing` (l'agrégateur des transcripts de la flotte) occupe déjà
+# 172.25.0.1:22000. Mesuré : « Bind for 172.25.0.1:22000 failed: port is already
+# allocated ». Le port INTERNE reste 22000 ; seule la porte côté hôte change.
 services:
   home-sync:
     ports:
-      - "172.25.0.1:22000:22000/tcp"   # protocole sync : VPC uniquement
-      - "172.25.0.1:22000:22000/udp"   # QUIC : VPC uniquement
+      - "172.25.0.1:22001:22000/tcp"   # protocole sync : VPC uniquement
+      - "172.25.0.1:22001:22000/udp"   # QUIC : VPC uniquement
