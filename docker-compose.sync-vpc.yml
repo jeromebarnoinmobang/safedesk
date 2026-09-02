@@ -1,0 +1,34 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Surcharge VPC — la synchronisation en DIRECT, sans relais tiers.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sync-vpc.yml up -d
+#
+# ── LE DÉFAUT QU'ELLE CORRIGE, mesuré le 02/09/2026 ────────────────────────
+# Le conteneur ne publiait AUCUN port ("22000/tcp": null) et vivait sur un
+# réseau Docker isolé. Aucun chemin direct n'existait entre les deux machines,
+# donc Syncthing faisait la seule chose qui lui restait : passer par un RELAIS
+# PUBLIC. Relevé dans ses journaux :
+#
+#   New device connection (device=VWTZKEZ address=185.222.160.72:22067)
+#
+# Le contenu est chiffré de bout en bout, mais il TRANSITE PAR UNE MACHINE
+# INCONNUE. Ce n'était pas un mauvais réglage de Syncthing : c'est la seule
+# option qu'on lui laissait.
+#
+# ── POURQUOI LE RELAIS N'EST PLUS NÉCESSAIRE ───────────────────────────────
+# Un relais existe pour deux machines qui ne peuvent pas se joindre — chacune
+# derrière son NAT. Le VPC supprime ce problème : les deux sont sur le même
+# réseau privé. Publier le port sur l'adresse du VPC suffit.
+#
+# ⚠ CE PORT N'EST PAS PUBLIC. 172.25.0.1 est l'adresse de l'hôte vue depuis le
+# tunnel, et le pare-feu IONOS bloque de toute façon 22000 depuis Internet. On
+# n'ouvre rien : on rend joignable ce qui l'était déjà pour un tiers.
+#
+# À N'APPLIQUER QUE CÔTÉ VPS : c'est lui qui reçoit la connexion. Le côté
+# SafeDesk l'initie et n'a donc aucun port à publier.
+# ═══════════════════════════════════════════════════════════════════════════
+services:
+  home-sync:
+    ports:
+      - "172.25.0.1:22000:22000/tcp"   # protocole sync : VPC uniquement
+      - "172.25.0.1:22000:22000/udp"   # QUIC : VPC uniquement
