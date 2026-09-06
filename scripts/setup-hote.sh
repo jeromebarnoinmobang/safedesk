@@ -208,7 +208,47 @@ REGLE
     ;;
 esac
 
-# --- 4. Verdict ---------------------------------------------------------------
+
+# --- 3 quater. Le VPC (reseau prive) ------------------------------------------
+#
+# POURQUOI CE BLOC EXISTE. Le 2026-09-06, le client VPC de ce Pi a ete pose a la
+# main, en SSH, pendant un depannage : copier le .ovpn, ecrire le service
+# systemd, l activer. Ca a marche - et ca aurait ete a refaire identiquement, en
+# silence, sur la prochaine machine, ou au prochain reinstall de celle-ci. Une
+# config posee a la main est une config qui n existe que dans la memoire de qui
+# l a posee.
+#
+# CE QUI NE PEUT PAS ETRE AUTOMATISE, et pourquoi ce n est pas un defaut : le
+# fichier .ovpn contient une cle privee. Ce depot est PUBLIC (voir le commit
+# "plus aucune adresse personnelle par defaut dans le code livre") - il ne
+# contiendra donc JAMAIS ce fichier. C est a l operateur de le fournir, une fois,
+# par machine :
+#
+#   sudo SAFEDESK_VPC_OVPN_FILE=/root/mobang-vpc.ovpn ./scripts/setup-hote.sh
+#
+# Sans cette variable, ce bloc ne fait rien - ni erreur, ni avertissement bruyant
+# - exactement comme le nom de machine au bloc 2.
+if [ -n "${SAFEDESK_VPC_OVPN_FILE:-}" ]; then
+  if [ ! -r "$SAFEDESK_VPC_OVPN_FILE" ]; then
+    echo "[vpc] SAFEDESK_VPC_OVPN_FILE=$SAFEDESK_VPC_OVPN_FILE introuvable ou illisible" >&2
+    exit 1
+  fi
+  command -v openvpn >/dev/null 2>&1 || { echo "[vpc] openvpn manquant -> installation"; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openvpn; }
+  install -d -m 0700 /etc/openvpn/client
+  CIBLE=/etc/openvpn/client/mobang-vpc.conf
+  if cmp -s "$SAFEDESK_VPC_OVPN_FILE" "$CIBLE" 2>/dev/null; then
+    echo "[vpc] config deja en place, identique -> rien a faire"
+  else
+    install -m 0600 "$SAFEDESK_VPC_OVPN_FILE" "$CIBLE"
+    echo "[vpc] config installee : $CIBLE"
+  fi
+  systemctl enable --now openvpn-client@mobang-vpc.service >/dev/null 2>&1
+  echo "[vpc] tunnel : $(systemctl is-active openvpn-client@mobang-vpc.service 2>/dev/null)"
+else
+  echo "[vpc] SAFEDESK_VPC_OVPN_FILE non fourni -> tunnel VPC non configure (voir le commentaire ci-dessus)"
+fi
+
+# --- 5. Verdict ---------------------------------------------------------------
 echo
 timedatectl | grep -E 'Local time|Universal time|RTC time|synchronized|NTP service'
 echo
