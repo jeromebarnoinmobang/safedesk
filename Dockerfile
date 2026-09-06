@@ -242,9 +242,9 @@ RUN chmod +x /custom-cont-init.d/safedesk-audio-setup
 
 # --- Options de Thorium : derivees de /etc/chromium.d (voir le script) ---
 COPY files/custom-cont-init.d/safedesk-thorium-flags /custom-cont-init.d/safedesk-thorium-flags
-COPY files/custom-cont-init.d/safedesk-thorium-chrome-seed /custom-cont-init.d/safedesk-thorium-chrome-seed
+COPY files/custom-services.d/safedesk-thorium-chrome-seed /custom-services.d/safedesk-thorium-chrome-seed
 RUN chmod +x /custom-cont-init.d/safedesk-thorium-flags
-RUN chmod +x /custom-cont-init.d/safedesk-thorium-chrome-seed
+RUN chmod +x /custom-services.d/safedesk-thorium-chrome-seed
 
 # --- Camera USB locale (docker-compose.av.yml) : outil v4l2 de capture/diagnostic ---
 RUN apt-get update && \
