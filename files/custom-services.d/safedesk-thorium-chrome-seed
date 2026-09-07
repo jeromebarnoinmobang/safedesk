@@ -13,10 +13,22 @@
 # sequentiel ; custom-services.d tourne en parallele, supervise par s6. Le bureau
 # est donc utilisable immediatement ; la copie se termine en arriere-plan.
 #
-# Compromis assume : si Thorium est ouvert AVANT la fin de la copie, il demarre
-# sur l'ancien profil (ou un profil vide, la premiere fois). Il suffit de le
-# refermer et rouvrir une fois la copie terminee (visible : la taille de
-# ~/.config/thorium arrete de grossir).
+# CE QU'ON RETIRE APRES COPIE, et pourquoi c'est le meme motif que .stignore
+# (decision du 17/08) : les bases LevelDB/SQLite de Chromium (Local Storage,
+# Session Storage, Service Worker, IndexedDB, Sync Data, caches GPU) referencent
+# des fichiers -journal/-wal/LOCK lies a un PROCESSUS vivant, pas a un instant
+# figé. Un `cp -a` en prend une photo incoherente si la source vient d'un profil
+# synchronise par Syncthing (donc jamais parfaitement au repos). Mesure le
+# 2026-09-07 : Thorium demarrait puis se fermait aussitot, sans fenetre de crash,
+# a cause d'une de ces bases corrompue par la copie — confirme en la retirant
+# (reproduit puis corrige en direct, teste avec succes avant d'ecrire ce fix).
+# `cp` n'a pas d'option --exclude (et rsync n'est pas installe) : on copie tout,
+# puis on supprime les dossiers a risque — le cout I/O est le meme que l'ancien
+# script, mais le profil qui reste est SAIN.
+#
+# Compromis assume : les onglets ouverts, le localStorage des sites et les
+# service workers ne suivent pas. L'identite Google (comptes, mots de passe,
+# marque-pages, préférences), elle, suit.
 command -v thorium-browser >/dev/null 2>&1 || exec sleep infinity
 
 SRC="/config/.config/google-chrome"
@@ -26,10 +38,19 @@ if [ -d "$SRC" ] && [ -n "$(ls -A "$SRC" 2>/dev/null)" ]; then
   if pgrep -f 'thorium-browser|thorium_browser' > /dev/null; then
     echo "[safedesk] thorium est en cours d'execution : pas de copie depuis google-chrome"
   else
-    echo "[safedesk] copie du profil google-chrome (session Google synchronisee) vers thorium, en arriere-plan"
+    echo "[safedesk] copie du profil google-chrome vers thorium, en arriere-plan"
     mkdir -p "$DST"
     rm -f "$DST"/Singleton* "$DST"/Default/LOCK 2>/dev/null || true
     cp -a "$SRC"/. "$DST"/
+    echo "[safedesk] retrait des caches LevelDB fragiles (meme motif que .stignore)"
+    find "$DST" -mindepth 2 -maxdepth 2 -type d \( \
+      -name 'Local Storage' -o -name 'Session Storage' -o -name 'Service Worker' \
+      -o -name 'IndexedDB' -o -name 'Sync Data' -o -name 'Shared Dictionary' \
+      -o -name 'blob_storage' -o -name 'GPUCache' -o -name 'DawnGraphiteCache' \
+      -o -name 'DawnWebGPUCache' -o -name 'SharedStorage' -o -name 'Code Cache' \
+      \) -exec rm -rf {} +
+    find "$DST" -mindepth 1 -maxdepth 1 -iname 'Singleton*' -exec rm -f {} +
+    find "$DST" -mindepth 2 -maxdepth 2 \( -name 'LOCK' -o -name 'LOG' -o -name 'LOG.old' \) -exec rm -f {} +
     chown -R abc:abc "$DST"
     echo "[safedesk] copie terminee"
   fi
