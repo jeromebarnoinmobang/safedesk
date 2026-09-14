@@ -214,9 +214,11 @@ RUN set -eux; \
 
 # --- OPTIONNEL : ecran TACTILE branche a la machine (docker-compose.touch.yml) ---
 # Plasma Wayland affiche directement sur l'ecran ; le clavier a l'ecran est Maliit
-# (celui que kwin sait piloter par le protocole input-method). Le portail KDE sert
+# (celui que kwin sait piloter par le protocole input-method). Maliit est en Qt5 :
+# sans qtwayland5 il n a pas de greffon « wayland » et meurt en silence (mesure le
+# 14/09/2026 : available=true cote kwin, mais aucun clavier). Le portail KDE sert
 # aux captures d'ecran et au partage sous Wayland. Voir files/custom-services.d/safedesk-touch.
-RUN set -eux;     if [ "$INSTALL_TOUCH" = "true" ]; then       apt-get update;       apt-get install -y --no-install-recommends maliit-keyboard xdg-desktop-portal-kde;       rm -rf /var/lib/apt/lists/*;     fi
+RUN set -eux;     if [ "$INSTALL_TOUCH" = "true" ]; then       apt-get update;       apt-get install -y --no-install-recommends maliit-keyboard qtwayland5 xdg-desktop-portal-kde;       rm -rf /var/lib/apt/lists/*;     fi
 
 # --- Acces RDP local basse latence (xrdp + KDE) ; port 3389 publie seulement en local ---
 RUN set -eux; \
