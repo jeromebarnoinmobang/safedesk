@@ -24,12 +24,14 @@ fi
 
 # Marqueur lu par le kiosque de l'hote (.bash_profile de l'appliance) : tant qu'il
 # existe, l'autologin tty1 ne relance PAS startx au prochain demarrage.
-if [ -d /etc/safedesk ] && [ -w /etc/safedesk ]; then
-  case "${1:-up}" in
-    down) rm -f /etc/safedesk/touch ;;
-    *)    touch /etc/safedesk/touch ;;
-  esac
-fi
+case "${1:-up}" in
+  down) rm -f /etc/safedesk/touch 2>/dev/null || sudo -n rm -f /etc/safedesk/touch 2>/dev/null || true ;;
+  *)    if ! { [ -f /etc/safedesk/touch ] || touch /etc/safedesk/touch 2>/dev/null || sudo -n touch /etc/safedesk/touch 2>/dev/null; }; then
+          echo "[touch] ATTENTION : /etc/safedesk/touch non pose (droits). Sans lui, l'autologin"
+          echo "         tty1 relance startx et reprend l'ecran. Poser a la main :"
+          echo "           sudo touch /etc/safedesk/touch"
+        fi ;;
+esac
 
 CMD=("$@"); [ ${#CMD[@]} -eq 0 ] && CMD=(up -d)
 docker compose "${FILES[@]}" "${CMD[@]}"

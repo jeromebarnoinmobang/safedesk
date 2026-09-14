@@ -11,7 +11,8 @@ echo "== $(date -Is) safedesk-touch : demarrage"
 # bureau, qui n'a donc besoin d'aucun droit direct sur /dev.
 SEAT_SOCK=/run/seatd.sock
 rm -f "$SEAT_SOCK"
-seatd -u abc -g abc -s "$SEAT_SOCK" &
+# seatd 0.9 n'a pas d'option de chemin : la socket se choisit par SEATD_SOCK.
+SEATD_SOCK="$SEAT_SOCK" seatd -u abc -g abc &
 SEATD_PID=$!
 for i in $(seq 1 50); do [ -S "$SEAT_SOCK" ] && break; sleep 0.1; done
 [ -S "$SEAT_SOCK" ] || { echo "ECHEC : seatd n'a pas ouvert $SEAT_SOCK"; exit 1; }
