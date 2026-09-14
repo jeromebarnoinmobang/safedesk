@@ -267,7 +267,8 @@ fi
 # Le processus du conteneur n'appartient a aucune session locale, donc polkit
 # repond « Interactive authentication required » et kwin conclut « Failed to
 # activate session ». Cette regle autorise le compte du bureau (celui de
-# l'autologin tty1) a activer sa propre session. Posee seulement si demandee :
+# l'autologin tty1) a activer sa propre session, et a eteindre/redemarrer la
+# machine depuis le menu de KDE (les boutons agissent sur l'HOTE). Posee si demandee :
 #
 #   sudo SAFEDESK_TOUCH=1 ./scripts/setup-hote.sh
 #
@@ -279,9 +280,17 @@ if [ "${SAFEDESK_TOUCH:-}" = "1" ]; then
 // polkit repond « Interactive authentication required » car le processus du
 // conteneur n'appartient a aucune session locale. Pose par scripts/setup-hote.sh.
 polkit.addRule(function(action, subject) {
-  if (action.id == "org.freedesktop.login1.chvt" && subject.user == "$COMPTE_TACTILE") {
+  if (subject.user != "$COMPTE_TACTILE") { return polkit.Result.NOT_HANDLED; }
+  // Activer la session tty1 (kwin, au demarrage de Plasma).
+  if (action.id == "org.freedesktop.login1.chvt") { return polkit.Result.YES; }
+  // Les boutons Eteindre / Redemarrer de KDE parlent au logind de l'HOTE (bus
+  // systeme monte) : ce sont de vrais arrets/redemarrages de la machine, pas du
+  // conteneur. Demande de Jerome le 14/09/2026.
+  if (action.id.indexOf("org.freedesktop.login1.power-off") == 0 ||
+      action.id.indexOf("org.freedesktop.login1.reboot") == 0) {
     return polkit.Result.YES;
   }
+  return polkit.Result.NOT_HANDLED;
 });
 REGLE
   chmod 644 /etc/polkit-1/rules.d/50-safedesk-touch.rules
