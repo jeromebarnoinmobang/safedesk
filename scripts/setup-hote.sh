@@ -248,6 +248,38 @@ else
   echo "[vpc] SAFEDESK_VPC_OVPN_FILE non fourni -> tunnel VPC non configure (voir le commentaire ci-dessus)"
 fi
 
+# --- 3 quinquies. Le TACTILE (Plasma sur l'ecran, depuis le conteneur) --------
+#
+# Mesure le 14/09/2026 : kwin_wayland dans le conteneur prend la session logind
+# tty1 de l'hote (voir files/custom-services.d/safedesk-touch). Pour cela il
+# appelle Session.Activate, que polkit soumet a l'action org.freedesktop.login1.chvt.
+# Le processus du conteneur n'appartient a aucune session locale, donc polkit
+# repond « Interactive authentication required » et kwin conclut « Failed to
+# activate session ». Cette regle autorise le compte du bureau (celui de
+# l'autologin tty1) a activer sa propre session. Posee seulement si demandee :
+#
+#   sudo SAFEDESK_TOUCH=1 ./scripts/setup-hote.sh
+#
+if [ "${SAFEDESK_TOUCH:-}" = "1" ]; then
+  COMPTE_TACTILE="${SUDO_USER:-pi}"
+  cat > /etc/polkit-1/rules.d/50-safedesk-touch.rules <<REGLE
+// SafeDesk tactile : kwin (dans le conteneur, uid 1000) doit pouvoir activer la
+// session tty1 de l'hote (Session.Activate = action chvt). Sans cette regle,
+// polkit repond « Interactive authentication required » car le processus du
+// conteneur n'appartient a aucune session locale. Pose par scripts/setup-hote.sh.
+polkit.addRule(function(action, subject) {
+  if (action.id == "org.freedesktop.login1.chvt" && subject.user == "$COMPTE_TACTILE") {
+    return polkit.Result.YES;
+  }
+});
+REGLE
+  chmod 644 /etc/polkit-1/rules.d/50-safedesk-touch.rules
+  systemctl restart polkit >/dev/null 2>&1 || true
+  install -d -m 0755 /etc/safedesk
+  touch /etc/safedesk/touch
+  echo "[tactile] regle polkit posee pour « $COMPTE_TACTILE » ; marqueur /etc/safedesk/touch pose"
+fi
+
 # --- 5. Verdict ---------------------------------------------------------------
 echo
 timedatectl | grep -E 'Local time|Universal time|RTC time|synchronized|NTP service'

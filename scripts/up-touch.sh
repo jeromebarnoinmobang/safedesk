@@ -33,5 +33,13 @@ case "${1:-up}" in
         fi ;;
 esac
 
+if [ ! -f /etc/polkit-1/rules.d/50-safedesk-touch.rules ]; then
+  echo "[touch] ATTENTION : regle polkit absente -> kwin ne pourra pas activer la session."
+  echo "         Poser une fois :  sudo SAFEDESK_TOUCH=1 ./scripts/setup-hote.sh"
+fi
+
 CMD=("$@"); [ ${#CMD[@]} -eq 0 ] && CMD=(up -d)
+# Le script du service est copie par s6 au demarrage du conteneur : un changement
+# de son contenu exige de RECREER le conteneur, sinon l'ancienne copie tourne.
+[ "${CMD[0]}" = "up" ] && CMD+=(--force-recreate desktop)
 docker compose "${FILES[@]}" "${CMD[@]}"
