@@ -54,6 +54,11 @@ if [ -x /usr/bin/maliit-keyboard ] && ! grep -q '^InputMethod=' "$KWINRC" 2>/dev
   echo "clavier a l'ecran : Maliit declare dans kwinrc"
 fi
 
+# KWIN_IM_SHOW_ALWAYS : sans lui, kwin n'ouvre le clavier a l'ecran que si la
+# DERNIERE entree etait tactile (inputmethod.cpp, shouldShowOnActive). Un champ
+# qui recoit le focus autrement (lancement d'une fenetre, raccourci) reste muet,
+# et un tap ulterieur dans ce meme champ ne re-declenche rien. Sur un poste sans
+# clavier physique, on veut le clavier a CHAQUE champ actif — mesure le 14/09.
 # Plasma Wayland sur le DRM : ni DISPLAY ni WAYLAND_DISPLAY, sinon kwin se croit
 # imbrique dans un autre serveur graphique et n'ouvre jamais l'ecran.
 cd /config
@@ -65,4 +70,5 @@ exec s6-setuidgid abc env -u DISPLAY -u WAYLAND_DISPLAY -u LD_PRELOAD \
   XDG_CURRENT_DESKTOP=KDE \
   KWIN_DRM_DEVICES="${KWIN_DRM_DEVICES:-/dev/dri/card1}" \
   QT_QPA_PLATFORM=wayland \
+  KWIN_IM_SHOW_ALWAYS=1 \
   dbus-run-session -- /usr/bin/startplasma-wayland
