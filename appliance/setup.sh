@@ -149,7 +149,9 @@ systemctl enable safedesk-tunnel.service safedesk-tunnel-check.timer
 
 echo "== [9/9] Kiosque : X + xfreerdp plein ecran, reconnexion auto =="
 cat > /home/$KUSER/.bash_profile <<'EOF'
-if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
+# Mode TACTILE (scripts/up-touch.sh pose /etc/safedesk/touch) : Plasma est sur
+# l'ecran depuis le conteneur, l'hote ne doit PAS lancer X ni xfreerdp.
+if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ] && [ ! -f /etc/safedesk/touch ]; then
   exec startx >/tmp/startx.log 2>&1
 fi
 EOF

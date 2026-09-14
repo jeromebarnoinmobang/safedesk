@@ -1,0 +1,40 @@
+#!/usr/bin/with-contenv bash
+# SafeDesk TACTILE : Plasma Wayland directement sur l'ecran de la machine.
+# Actif seulement si SAFEDESK_TOUCH=1 (pose par docker-compose.touch.yml).
+[ "${SAFEDESK_TOUCH:-}" = "1" ] || exec sleep infinity
+
+LOG=/tmp/safedesk-touch.log
+exec >>"$LOG" 2>&1
+echo "== $(date -Is) safedesk-touch : demarrage"
+
+# Le siege : seatd ouvre les peripheriques (DRM, input, VT) pour le compte du
+# bureau, qui n'a donc besoin d'aucun droit direct sur /dev.
+SEAT_SOCK=/run/seatd.sock
+rm -f "$SEAT_SOCK"
+seatd -u abc -g abc -s "$SEAT_SOCK" &
+SEATD_PID=$!
+for i in $(seq 1 50); do [ -S "$SEAT_SOCK" ] && break; sleep 0.1; done
+[ -S "$SEAT_SOCK" ] || { echo "ECHEC : seatd n'a pas ouvert $SEAT_SOCK"; exit 1; }
+
+# Un runtime dir LOCAL a la machine (pas le home synchronise) pour les sockets.
+RUNTIME=/tmp/runtime-abc
+install -d -m 0700 -o abc -g abc "$RUNTIME"
+
+# LA PREUVE avant de lancer : l'ecran et la dalle sont bien la.
+for c in /sys/class/drm/card*-*; do
+  [ "$(cat "$c/status" 2>/dev/null)" = "connected" ] && echo "ecran : $(basename "$c") $(head -1 "$c/modes" 2>/dev/null)"
+done
+grep -l 'ID_INPUT_TOUCHSCREEN=1' /run/udev/data/+input:input* 2>/dev/null | head -1 | xargs -r -I{} echo "dalle tactile : {}"
+
+# Plasma Wayland sur le DRM : ni DISPLAY ni WAYLAND_DISPLAY, sinon kwin se croit
+# imbrique dans un autre serveur graphique et n'ouvre jamais l'ecran.
+cd /config
+exec s6-setuidgid abc env -u DISPLAY -u WAYLAND_DISPLAY -u LD_PRELOAD \
+  HOME=/config \
+  XDG_RUNTIME_DIR="$RUNTIME" \
+  XDG_SESSION_TYPE=wayland \
+  XDG_CURRENT_DESKTOP=KDE \
+  LIBSEAT_BACKEND=seatd SEATD_SOCK="$SEAT_SOCK" \
+  KWIN_DRM_DEVICES="${KWIN_DRM_DEVICES:-/dev/dri/card1}" \
+  QT_QPA_PLATFORM=wayland \
+  dbus-run-session -- /usr/bin/startplasma-wayland

@@ -2,6 +2,8 @@
 # SafeDesk : acces RDP local basse latence (session KDE native via xrdp).
 # Port 3389 publie SEULEMENT en local (docker-compose.local.yml) -> loopback.
 # Login RDP = abc / <PASSWORD webtop>.
+# Mode TACTILE (docker-compose.touch.yml) : Plasma est sur l'ecran, pas de RDP.
+[ "${SAFEDESK_TOUCH:-}" = "1" ] && exec sleep infinity
 [ -n "${PASSWORD:-}" ] && echo "abc:${PASSWORD}" | chpasswd 2>/dev/null
 pkill -x xrdp-sesman 2>/dev/null; pkill -x xrdp 2>/dev/null; sleep 1
 # Apres un arret brutal (coupure de courant, 14/09/2026), le pid et la socket de la

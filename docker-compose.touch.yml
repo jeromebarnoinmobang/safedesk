@@ -1,0 +1,59 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Surcharge TACTILE — SafeDesk sur un ecran tactile branche AU Pi, sans RDP.
+#
+#   scripts/up-touch.sh        (compose : yml + local + pi5 + touch)
+#
+# ── LE PROBLEME QU'ELLE RESOUT, mesure le 14/09/2026 ───────────────────────
+# L'ecran Waveshare 1280x800 du Pi 5 est une VRAIE dalle multipoint : le noyau
+# la prend avec hid-multitouch (ABS_MT_SLOT, ABS_MT_TRACKING_ID). Mais la chaine
+# du kiosque la reduisait a une souris :
+#
+#   dalle -> Xorg sur l'hote (openbox) -> xfreerdp plein ecran -> xrdp -> KDE
+#
+# xrdp ne transporte pas le tactile (MS-RDPEI : brouillon jamais fusionne,
+# issue neutrinolabs/xrdp#3092). Quel que soit le client, un doigt = un clic.
+#
+# ── CE QUE FAIT CETTE SURCHARGE ─────────────────────────────────────────────
+# Le conteneur affiche Plasma DIRECTEMENT sur l'ecran du Pi : kwin_wayland sur
+# le DRM (/dev/dri/card1 = sortie vc4), entrees par libinput (/dev/input).
+# Plus de Xorg hote, plus de xfreerdp, plus de xrdp, plus de Xvfb/Selkies.
+# Le tactile arrive a KDE en natif : pincer, deux doigts, mode tablette.
+#
+# Ce qui ne change PAS : le home /config (synchronise), Claude, Thorium, gh,
+# le VPC, Syncthing. Ce qui disparait sur CETTE variante : l'acces distant
+# (ports 3000 et 3389 non publies) — c'est un SafeDesk tactile, pas un serveur.
+#
+# ── PRIVILEGIE, ET POURQUOI (a resserrer) ───────────────────────────────────
+# Premier montage (14/09/2026) en `privileged` : seatd doit ouvrir les consoles
+# virtuelles (/dev/tty0..7, CAP_SYS_TTY_CONFIG) et kwin doit devenir maitre DRM.
+# C'est le reglage qui isole « ca ne s'affiche pas » de « pas le droit ». Une
+# fois le rendu prouve, le resserrer : devices /dev/dri + /dev/input + /dev/tty*,
+# cap_add SYS_TTY_CONFIG, group_add video/render/input, et retirer privileged.
+# ═══════════════════════════════════════════════════════════════════════════
+services:
+  desktop:
+    privileged: true
+    # Aucun port : rien a publier, l'ecran est branche sur la machine.
+    ports: !override []
+    environment:
+      SAFEDESK_TOUCH: "1"
+      # Le faux libudev de la manette virtuelle (LD_PRELOAD pose par l'image) fait
+      # mentir libinput sur les peripheriques reels. Sans manette, pas de preload.
+      NO_GAMEPAD: "1"
+      # card0 = v3d (rendu seul), card1 = vc4 (la sortie HDMI). Sans ce reglage
+      # kwin peut choisir le mauvais et ne rien afficher.
+      KWIN_DRM_DEVICES: "/dev/dri/card1"
+    volumes:
+      # La base de donnees udev de l'hote : sans elle libinput ne voit AUCUN
+      # peripherique (pas de udevd dans le conteneur).
+      - /run/udev:/run/udev:ro
+      # Le service qui lance Plasma Wayland sur l'ecran.
+      - ./files/custom-services.d/safedesk-touch:/custom-services.d/safedesk-touch:ro
+      # xrdp coupe (garde SAFEDESK_TOUCH dans le script).
+      - ./files/custom-services.d/xrdp:/custom-services.d/xrdp:ro
+      # Les trois services de l'image qui montent un ecran VIRTUEL (Xvfb :1,
+      # Selkies, le DE sur :1) sont neutralises : ils se disputeraient le GPU et
+      # ouvriraient une seconde session Plasma sur le meme home.
+      - ./files/s6-off/run:/etc/s6-overlay/s6-rc.d/svc-xorg/run:ro
+      - ./files/s6-off/run:/etc/s6-overlay/s6-rc.d/svc-selkies/run:ro
+      - ./files/s6-off/run:/etc/s6-overlay/s6-rc.d/svc-de/run:ro

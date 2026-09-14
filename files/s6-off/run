@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv bash
+# Service de l'image NEUTRALISE par une surcharge compose (monte par-dessus son
+# `run`). Il reste declare pour s6, mais ne fait rien. Voir docker-compose.touch.yml.
+exec sleep infinity
