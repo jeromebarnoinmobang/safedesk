@@ -48,7 +48,7 @@ if command -v timedatectl >/dev/null 2>&1; then
 fi
 
 export RENDER_PROFILE=zz-no-gpu
-FILES=(-f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.av.yml)
+FILES=(-f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.av.yml -f docker-compose.sync-vpc.yml)
 
 echo "[detect] profil distant, rendu logiciel"
 docker compose "${FILES[@]}" up -d
