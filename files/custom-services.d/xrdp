@@ -4,6 +4,10 @@
 # Login RDP = abc / <PASSWORD webtop>.
 [ -n "${PASSWORD:-}" ] && echo "abc:${PASSWORD}" | chpasswd 2>/dev/null
 pkill -x xrdp-sesman 2>/dev/null; pkill -x xrdp 2>/dev/null; sleep 1
+# Apres un arret brutal (coupure de courant, 14/09/2026), le pid et la socket de la
+# session precedente survivent dans le conteneur : sesman refuse alors de demarrer
+# (« already running ») et xrdp repond « Error connecting to sesman ». On les efface.
+rm -f /var/run/xrdp/xrdp-sesman.pid /run/xrdp/sockdir/sesman.socket /run/xrdp/sockdir/.sesman.socket.lock
 xrdp-sesman
 sleep 1
 exec xrdp -n
