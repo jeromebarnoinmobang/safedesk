@@ -51,6 +51,10 @@ services:
       # peripherique (pas de udevd dans le conteneur).
       - /run/udev:/run/udev:ro
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      # Thorium en Wayland natif : sans cela, ses champs n'appellent pas le
+      # clavier a l'ecran (fenetre X11 via Xwayland). Lu au demarrage du conteneur
+      # par safedesk-thorium-flags, qui en derive thorium-flags.conf.
+      - ./chromium.d/zz-touch-wayland:/etc/chromium.d/zz-touch-wayland:ro
       # Le service qui lance Plasma Wayland sur l'ecran.
       - ./files/custom-services.d/safedesk-touch:/custom-services.d/safedesk-touch:ro
       # xrdp coupe (garde SAFEDESK_TOUCH dans le script).

@@ -1,0 +1,8 @@
+# SafeDesk TACTILE (docker-compose.touch.yml) — Thorium en client Wayland natif.
+#
+# Mesure le 14/09/2026 : lance par defaut, Thorium passe par Xwayland (X11). Or
+# le clavier a l'ecran de Plasma (Maliit) ne s'ouvre que pour les fenetres qui
+# parlent le protocole Wayland text-input ; un champ dans une fenetre X11 ne
+# declenche rien. En Wayland natif, avec l'IME Wayland active, un tap dans un
+# champ fait monter le clavier. Le rendu reste logiciel (voir zz-render).
+CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ozone-platform=wayland --enable-wayland-ime"
