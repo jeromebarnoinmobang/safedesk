@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 # tactile, pas la variante RDP. Mesure le 14/09/2026 : sans ce renvoi, un reboot
 # relancait la variante RDP ET reconstruisait l'image (`up --build`) pendant
 # 20 minutes, ecran noir, alors que le tactile etait en place.
-if [ -f /etc/safedesk/touch ] && [ -x "$(dirname "$0")/up-touch.sh" ]; then
+if [ -f /etc/safedesk/touch ] && [ -f "$(dirname "$0")/up-touch.sh" ]; then
   echo "[touch] marqueur /etc/safedesk/touch present -> variante tactile"
   exec bash "$(dirname "$0")/up-touch.sh" "$@"
 fi
