@@ -41,5 +41,5 @@ fi
 CMD=("$@"); [ ${#CMD[@]} -eq 0 ] && CMD=(up -d)
 # Le script du service est copie par s6 au demarrage du conteneur : un changement
 # de son contenu exige de RECREER le conteneur, sinon l'ancienne copie tourne.
-[ "${CMD[0]}" = "up" ] && CMD+=(--force-recreate desktop)
+[ "${CMD[0]}" = "up" ] && CMD+=(--force-recreate)
 docker compose "${FILES[@]}" "${CMD[@]}"
