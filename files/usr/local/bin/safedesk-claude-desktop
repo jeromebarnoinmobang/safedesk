@@ -61,4 +61,11 @@ if [ -n "$CUR" ]; then
   printf '%s\n' "$CUR" > "$OWNER" 2>/dev/null || true
 fi
 
-exec "$BIN" --password-store=basic "$@"
+# Mode TACTILE (docker-compose.touch.yml) : Plasma est en Wayland et le clavier a
+# l'ecran ne s'ouvre que pour une fenetre Wayland (protocole text-input). Sans ces
+# options Electron passe par Xwayland et les champs de Claude restent muets.
+TOUCH_FLAGS=""
+if [ "${SAFEDESK_TOUCH:-}" = "1" ]; then
+  TOUCH_FLAGS="--ozone-platform=wayland --enable-wayland-ime"
+fi
+exec "$BIN" --password-store=basic $TOUCH_FLAGS "$@"
