@@ -7,15 +7,19 @@ LOG=/tmp/safedesk-touch.log
 exec >>"$LOG" 2>&1
 echo "== $(date -Is) safedesk-touch : demarrage"
 
-# Le siege : seatd ouvre les peripheriques (DRM, input, VT) pour le compte du
-# bureau, qui n'a donc besoin d'aucun droit direct sur /dev.
-SEAT_SOCK=/run/seatd.sock
-rm -f "$SEAT_SOCK"
-# seatd 0.9 n'a pas d'option de chemin : la socket se choisit par SEATD_SOCK.
-SEATD_SOCK="$SEAT_SOCK" seatd -u abc -g abc &
-SEATD_PID=$!
-for i in $(seq 1 50); do [ -S "$SEAT_SOCK" ] && break; sleep 0.1; done
-[ -S "$SEAT_SOCK" ] || { echo "ECHEC : seatd n'a pas ouvert $SEAT_SOCK"; exit 1; }
+# ── LE SIEGE, et pourquoi il n'y a PAS de seatd ici (mesure le 14/09/2026) ──
+# KWin 6.3 ne parle pas libseat : il cherche une session logind, et faute d'en
+# trouver une (« Could not determine the active graphical session ») il ouvre
+# lui-meme les peripheriques. Un seatd lance a cote ne servait donc a rien, et
+# kwin echouait sur « failed to open drm device ». Le compte du bureau doit
+# pouvoir ouvrir DIRECTEMENT la carte et les entrees : on donne les droits sur
+# les noeuds du conteneur (pas ceux de l'hote — /dev est un tmpfs propre).
+chmod 0666 /dev/dri/card* /dev/dri/renderD* 2>/dev/null || true
+chmod 0666 /dev/input/event* 2>/dev/null || true
+chmod 0666 /dev/tty0 /dev/tty[1-9] 2>/dev/null || true
+
+# Xwayland (applications X11 dans la session Wayland) exige ce dossier.
+install -d -m 1777 /tmp/.X11-unix
 
 # Un runtime dir LOCAL a la machine (pas le home synchronise) pour les sockets.
 RUNTIME=/tmp/runtime-abc
@@ -35,7 +39,6 @@ exec s6-setuidgid abc env -u DISPLAY -u WAYLAND_DISPLAY -u LD_PRELOAD \
   XDG_RUNTIME_DIR="$RUNTIME" \
   XDG_SESSION_TYPE=wayland \
   XDG_CURRENT_DESKTOP=KDE \
-  LIBSEAT_BACKEND=seatd SEATD_SOCK="$SEAT_SOCK" \
   KWIN_DRM_DEVICES="${KWIN_DRM_DEVICES:-/dev/dri/card1}" \
   QT_QPA_PLATFORM=wayland \
   dbus-run-session -- /usr/bin/startplasma-wayland
