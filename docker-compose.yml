@@ -13,6 +13,7 @@ services:
         INSTALL_SUNSHINE: ${INSTALL_SUNSHINE:-false}
         INSTALL_FORGE: ${INSTALL_FORGE:-false}
         INSTALL_BLUETOOTH: ${INSTALL_BLUETOOTH:-false}
+        INSTALL_TOUCH: ${INSTALL_TOUCH:-false}
     image: mobang/desktop:kde
     container_name: mobang-desktop
     # Hostname FIXE : sans lui, chaque recreation change le nom d hote et les navigateurs

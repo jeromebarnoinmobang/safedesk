@@ -44,6 +44,16 @@ for c in /sys/class/drm/card*-*; do
 done
 grep -l 'ID_INPUT_TOUCHSCREEN=1' /run/udev/data/+input:input* 2>/dev/null | head -1 | xargs -r -I{} echo "dalle tactile : {}"
 
+# Le clavier a l'ecran : kwin ne lance Maliit que si kwinrc le designe, et il ne
+# relit ce reglage QU'AU DEMARRAGE (mesure le 14/09 : un reconfigure ne suffit
+# pas, available restait false). On le pose avant de lancer la session, une fois.
+KWINRC=/config/.config/kwinrc
+if [ -x /usr/bin/maliit-keyboard ] && ! grep -q '^InputMethod=' "$KWINRC" 2>/dev/null; then
+  s6-setuidgid abc env HOME=/config kwriteconfig6 --file "$KWINRC" --group Wayland     --key InputMethod /usr/share/applications/com.github.maliit.keyboard.desktop
+  s6-setuidgid abc env HOME=/config kwriteconfig6 --file "$KWINRC" --group Wayland     --key VirtualKeyboardEnabled true
+  echo "clavier a l'ecran : Maliit declare dans kwinrc"
+fi
+
 # Plasma Wayland sur le DRM : ni DISPLAY ni WAYLAND_DISPLAY, sinon kwin se croit
 # imbrique dans un autre serveur graphique et n'ouvre jamais l'ecran.
 cd /config

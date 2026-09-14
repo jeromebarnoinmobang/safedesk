@@ -10,6 +10,7 @@ FROM lscr.io/linuxserver/webtop:debian-kde@sha256:2c69b3325b177713ac388fd8c0b955
 
 ARG INSTALL_CHROME=false
 ARG INSTALL_CLAUDE=false
+ARG INSTALL_TOUCH=false
 ARG INSTALL_SUNSHINE=false
 ARG INSTALL_FORGE=false
 
@@ -210,6 +211,12 @@ RUN set -eux; \
         chmod +x /usr/bin/claude-desktop; \
       fi; \
     fi
+
+# --- OPTIONNEL : ecran TACTILE branche a la machine (docker-compose.touch.yml) ---
+# Plasma Wayland affiche directement sur l'ecran ; le clavier a l'ecran est Maliit
+# (celui que kwin sait piloter par le protocole input-method). Le portail KDE sert
+# aux captures d'ecran et au partage sous Wayland. Voir files/custom-services.d/safedesk-touch.
+RUN set -eux;     if [ "$INSTALL_TOUCH" = "true" ]; then       apt-get update;       apt-get install -y --no-install-recommends maliit-keyboard xdg-desktop-portal-kde;       rm -rf /var/lib/apt/lists/*;     fi
 
 # --- Acces RDP local basse latence (xrdp + KDE) ; port 3389 publie seulement en local ---
 RUN set -eux; \
