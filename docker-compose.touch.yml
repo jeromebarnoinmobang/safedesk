@@ -55,7 +55,7 @@ services:
       # clavier a l'ecran (fenetre X11 via Xwayland). Lu au demarrage du conteneur
       # par safedesk-thorium-flags, qui en derive thorium-flags.conf.
       - ./chromium.d/zz-touch-wayland:/etc/chromium.d/zz-touch-wayland:ro
-      # Clavier a l'ecran moins haut (27 % de l'ecran au lieu de 39 %) : Maliit lit
+      # Clavier a l'ecran moins haut (23 % de l'ecran au lieu de 39 %) : Maliit lit
       # ses proportions dans ce profil, il n'a pas de reglage utilisateur pour ca.
       - ./files/maliit/default.json:/usr/share/maliit/keyboard2/devices/default.json:ro
       # Le service qui lance Plasma Wayland sur l'ecran.

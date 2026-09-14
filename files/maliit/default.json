@@ -5,7 +5,7 @@
 
   "keyMargins": 0.25,
 
-  "fontSize": 2.2,
+  "fontSize": 2.0,
   "fontBold": false,
 
   "annotationFontSize": 10,
@@ -35,8 +35,8 @@
   "wordRibbonHeight": 4,
   "wordRibbonFontSize": 14,
 
-  "keyboardHeightPortrait": 0.24,
-  "keyboardHeightLandscape": 0.27,
+  "keyboardHeightPortrait": 0.21,
+  "keyboardHeightLandscape": 0.23,
 
   "flickMargin": 1.5,
   "flickBorderWidth": 0.1
