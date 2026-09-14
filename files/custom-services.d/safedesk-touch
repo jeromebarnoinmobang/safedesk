@@ -7,16 +7,29 @@ LOG=/tmp/safedesk-touch.log
 exec >>"$LOG" 2>&1
 echo "== $(date -Is) safedesk-touch : demarrage"
 
-# ── LE SIEGE, et pourquoi il n'y a PAS de seatd ici (mesure le 14/09/2026) ──
-# KWin 6.3 ne parle pas libseat : il cherche une session logind, et faute d'en
-# trouver une (« Could not determine the active graphical session ») il ouvre
-# lui-meme les peripheriques. Un seatd lance a cote ne servait donc a rien, et
-# kwin echouait sur « failed to open drm device ». Le compte du bureau doit
-# pouvoir ouvrir DIRECTEMENT la carte et les entrees : on donne les droits sur
-# les noeuds du conteneur (pas ceux de l'hote — /dev est un tmpfs propre).
-chmod 0666 /dev/dri/card* /dev/dri/renderD* 2>/dev/null || true
-chmod 0666 /dev/input/event* 2>/dev/null || true
-chmod 0666 /dev/tty0 /dev/tty[1-9] 2>/dev/null || true
+# ── LE SIEGE : la session logind de l'HOTE (mesure le 14/09/2026) ──────────
+# KWin 6.3 ne parle pas libseat et n'ouvre pas les peripheriques lui-meme sur
+# le DRM : il demande a logind (TakeControl, puis TakeDevice pour chaque carte
+# et chaque entree). Il cherche SA session par XDG_SESSION_ID, ou « auto » —
+# et « auto » echoue depuis un conteneur (le processus n'appartient a aucune
+# session). Mais l'hote, lui, a une session pour l'utilisateur 1000 : celle de
+# l'autologin sur tty1 (seat0, active). On la designe explicitement, via le bus
+# systeme de l'hote (/run/dbus/system_bus_socket, monte par le compose).
+# Consequence heureuse : aucun droit sur /dev n'est necessaire, logind passe
+# les descripteurs ouverts. Verifie : TakeControl accepte depuis le conteneur.
+USER_PATH=$(dbus-send --system --print-reply --dest=org.freedesktop.login1 \
+  /org/freedesktop/login1 org.freedesktop.login1.Manager.GetUser uint32:1000 2>/dev/null \
+  | awk '/object path/ {gsub(/"/,"",$3); print $3}')
+SESSION_ID=$(dbus-send --system --print-reply --dest=org.freedesktop.login1 \
+  "$USER_PATH" org.freedesktop.DBus.Properties.Get \
+  string:org.freedesktop.login1.User string:Display 2>/dev/null \
+  | awk '/string/ {gsub(/"/,"",$2); print $2}')
+if [ -z "$SESSION_ID" ]; then
+  echo "ECHEC : pas de session logind pour l'utilisateur 1000 sur l'hote (autologin tty1 ?)."
+  echo "        USER_PATH=$USER_PATH — verifier /run/dbus/system_bus_socket et loginctl."
+  sleep 20; exit 1
+fi
+echo "session logind de l'hote : $SESSION_ID ($USER_PATH)"
 
 # Xwayland (applications X11 dans la session Wayland) exige ce dossier.
 install -d -m 1777 /tmp/.X11-unix
@@ -38,6 +51,7 @@ exec s6-setuidgid abc env -u DISPLAY -u WAYLAND_DISPLAY -u LD_PRELOAD \
   HOME=/config \
   XDG_RUNTIME_DIR="$RUNTIME" \
   XDG_SESSION_TYPE=wayland \
+  XDG_SESSION_ID="$SESSION_ID" \
   XDG_CURRENT_DESKTOP=KDE \
   KWIN_DRM_DEVICES="${KWIN_DRM_DEVICES:-/dev/dri/card1}" \
   QT_QPA_PLATFORM=wayland \

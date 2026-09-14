@@ -43,10 +43,14 @@ services:
       # card0 = v3d (rendu seul), card1 = vc4 (la sortie HDMI). Sans ce reglage
       # kwin peut choisir le mauvais et ne rien afficher.
       KWIN_DRM_DEVICES: "/dev/dri/card1"
+      # Le bus systeme de l'HOTE : c'est par lui que kwin demande a logind la
+      # session tty1 et les peripheriques (voir files/custom-services.d/safedesk-touch).
+      DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/run/dbus/system_bus_socket"
     volumes:
       # La base de donnees udev de l'hote : sans elle libinput ne voit AUCUN
       # peripherique (pas de udevd dans le conteneur).
       - /run/udev:/run/udev:ro
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
       # Le service qui lance Plasma Wayland sur l'ecran.
       - ./files/custom-services.d/safedesk-touch:/custom-services.d/safedesk-touch:ro
       # xrdp coupe (garde SAFEDESK_TOUCH dans le script).
