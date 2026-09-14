@@ -3,6 +3,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# ── MODE TACTILE : le marqueur decide ─────────────────────────────────────────
+# scripts/up-touch.sh pose /etc/safedesk/touch. Tant qu'il existe, le demarrage
+# de la machine (safedesk-stack.service -> ce script) doit lancer la variante
+# tactile, pas la variante RDP. Mesure le 14/09/2026 : sans ce renvoi, un reboot
+# relancait la variante RDP ET reconstruisait l'image (`up --build`) pendant
+# 20 minutes, ecran noir, alors que le tactile etait en place.
+if [ -f /etc/safedesk/touch ] && [ -x "$(dirname "$0")/up-touch.sh" ]; then
+  echo "[touch] marqueur /etc/safedesk/touch present -> variante tactile"
+  exec bash "$(dirname "$0")/up-touch.sh" "$@"
+fi
+
+
 # MISE A JOUR DU DEPOT AVANT DE DEMARRER, mais JAMAIS AU PRIX DU BUREAU.
 #
 # Le bureau doit demarrer meme sans reseau, meme si GitHub est injoignable, meme si

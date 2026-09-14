@@ -248,6 +248,17 @@ else
   echo "[vpc] SAFEDESK_VPC_OVPN_FILE non fourni -> tunnel VPC non configure (voir le commentaire ci-dessus)"
 fi
 
+# --- 3 quater bis. Journal systeme PERSISTANT --------------------------------
+# Mesure le 14/09/2026 : le Pi a redemarre seul et le journal (en RAM par
+# defaut) etait perdu — impossible de savoir pourquoi. Avec /var/log/journal,
+# journald ecrit sur disque et `journalctl -b -1` raconte le boot precedent.
+if [ ! -d /var/log/journal ]; then
+  mkdir -p /var/log/journal
+  systemd-tmpfiles --create --prefix /var/log/journal >/dev/null 2>&1 || true
+  systemctl restart systemd-journald >/dev/null 2>&1 || true
+  echo "[journal] persistant : /var/log/journal"
+fi
+
 # --- 3 quinquies. Le TACTILE (Plasma sur l'ecran, depuis le conteneur) --------
 #
 # Mesure le 14/09/2026 : kwin_wayland dans le conteneur prend la session logind
