@@ -40,9 +40,15 @@ fi
 
 # Le casque Bluetooth se reconnecte avant le son de la session au demarrage :
 # un service utilisateur le reconnecte ensuite (voir le fichier). Sans sudo.
-mkdir -p "$HOME/.config/systemd/user"
-cp files/systemd/user/safedesk-bt-audio.service "$HOME/.config/systemd/user/"
-systemctl --user daemon-reload 2>/dev/null && systemctl --user enable safedesk-bt-audio.service >/dev/null 2>&1   || echo "[touch] ATTENTION : service safedesk-bt-audio non active (systemctl --user indisponible)"
+# Seulement lance a la main par l'utilisateur du bureau : au boot, c'est
+# safedesk-stack.service (root, sans HOME) qui appelle ce script, et le service
+# est deja installe dans le home de pi. Le 26/10/2026, ce bloc sans garde a fait
+# echouer le demarrage du bureau (« HOME: unbound variable », set -u).
+if [ "$(id -u)" != 0 ] && [ -n "${HOME:-}" ]; then
+  mkdir -p "$HOME/.config/systemd/user"
+  cp files/systemd/user/safedesk-bt-audio.service "$HOME/.config/systemd/user/"
+  systemctl --user daemon-reload 2>/dev/null && systemctl --user enable safedesk-bt-audio.service >/dev/null 2>&1     || echo "[touch] ATTENTION : service safedesk-bt-audio non active (systemctl --user indisponible)"
+fi
 
 CMD=("$@"); [ ${#CMD[@]} -eq 0 ] && CMD=(up -d)
 # Le script du service est copie par s6 au demarrage du conteneur : un changement
