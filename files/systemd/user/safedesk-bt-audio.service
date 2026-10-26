@@ -1,0 +1,19 @@
+# Mode tactile : reconnecte le casque Bluetooth une fois le son de la session pret.
+#
+# POURQUOI (mesure le 26/10/2026 sur le Pi 5) : au demarrage, le casque deja appaire
+# se reconnecte a BlueZ AVANT que pipewire/wireplumber de l'utilisateur pi soient
+# lances. Il reste « Connected: yes » mais sans profil audio : ni sortie ni micro,
+# et le bureau joue sur le HDMI. Une deconnexion/reconnexion une fois wireplumber
+# en route attache le casque. Installe par scripts/up-touch.sh (service UTILISATEUR,
+# aucun sudo).
+[Unit]
+Description=SafeDesk : reconnecte le casque Bluetooth quand le son est pret
+After=wireplumber.service pipewire-pulse.service
+Wants=wireplumber.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'sleep 5; for m in $(bluetoothctl devices Connected | cut -d" " -f2); do bluetoothctl info "$m" | grep -q "Audio Sink" || continue; bluetoothctl disconnect "$m"; sleep 2; bluetoothctl connect "$m"; done; true'
+
+[Install]
+WantedBy=default.target

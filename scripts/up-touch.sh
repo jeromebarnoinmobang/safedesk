@@ -38,6 +38,12 @@ if [ ! -f /etc/polkit-1/rules.d/50-safedesk-touch.rules ]; then
   echo "         Poser une fois :  sudo SAFEDESK_TOUCH=1 ./scripts/setup-hote.sh"
 fi
 
+# Le casque Bluetooth se reconnecte avant le son de la session au demarrage :
+# un service utilisateur le reconnecte ensuite (voir le fichier). Sans sudo.
+mkdir -p "$HOME/.config/systemd/user"
+cp files/systemd/user/safedesk-bt-audio.service "$HOME/.config/systemd/user/"
+systemctl --user daemon-reload 2>/dev/null && systemctl --user enable safedesk-bt-audio.service >/dev/null 2>&1   || echo "[touch] ATTENTION : service safedesk-bt-audio non active (systemctl --user indisponible)"
+
 CMD=("$@"); [ ${#CMD[@]} -eq 0 ] && CMD=(up -d)
 # Le script du service est copie par s6 au demarrage du conteneur : un changement
 # de son contenu exige de RECREER le conteneur, sinon l'ancienne copie tourne.
