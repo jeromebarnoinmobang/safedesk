@@ -46,6 +46,10 @@ services:
       # Le bus systeme de l'HOTE : c'est par lui que kwin demande a logind la
       # session tty1 et les peripheriques (voir files/custom-services.d/safedesk-touch).
       DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/run/dbus/system_bus_socket"
+      # Le son : celui de l'HOTE (voir le montage /run/host-pulse). Une variable, pas
+      # client.conf : ce fichier est dans le home SYNCHRONISE, et les autres postes y
+      # liraient un serveur qui n'existe que sur le Pi.
+      PULSE_SERVER: "unix:/run/host-pulse/native"
     volumes:
       # La base de donnees udev de l'hote : sans elle libinput ne voit AUCUN
       # peripherique (pas de udevd dans le conteneur).
@@ -68,3 +72,9 @@ services:
       - ./files/s6-off/run:/etc/s6-overlay/s6-rc.d/svc-xorg/run:ro
       - ./files/s6-off/run:/etc/s6-overlay/s6-rc.d/svc-selkies/run:ro
       - ./files/s6-off/run:/etc/s6-overlay/s6-rc.d/svc-de/run:ro
+      # LE SON DU PI (26/10/2026). Sans RDP, plus aucune redirection audio : le bureau
+      # n'avait que des sorties nulles, ni haut-parleur ni micro (un casque Bluetooth
+      # appaire cote hote restait muet pour KDE, Thorium et le dock). On monte le
+      # dossier du serveur PulseAudio de l'HOTE (pipewire-pulse de l'utilisateur 1000,
+      # le meme UID que abc) ; PULSE_SERVER (plus haut) y branche tout le bureau.
+      - /run/user/1000/pulse:/run/host-pulse
