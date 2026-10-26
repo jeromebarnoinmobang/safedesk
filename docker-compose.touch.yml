@@ -46,10 +46,10 @@ services:
       # Le bus systeme de l'HOTE : c'est par lui que kwin demande a logind la
       # session tty1 et les peripheriques (voir files/custom-services.d/safedesk-touch).
       DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/run/dbus/system_bus_socket"
-      # Le son : celui de l'HOTE (voir le montage /run/host-pulse). Une variable, pas
+      # Le son : celui de l'HOTE (voir le montage /run/host-user). Une variable, pas
       # client.conf : ce fichier est dans le home SYNCHRONISE, et les autres postes y
       # liraient un serveur qui n'existe que sur le Pi.
-      PULSE_SERVER: "unix:/run/host-pulse/native"
+      PULSE_SERVER: "unix:/run/host-user/1000/pulse/native"
     volumes:
       # La base de donnees udev de l'hote : sans elle libinput ne voit AUCUN
       # peripherique (pas de udevd dans le conteneur).
@@ -77,4 +77,12 @@ services:
       # appaire cote hote restait muet pour KDE, Thorium et le dock). On monte le
       # dossier du serveur PulseAudio de l'HOTE (pipewire-pulse de l'utilisateur 1000,
       # le meme UID que abc) ; PULSE_SERVER (plus haut) y branche tout le bureau.
-      - /run/user/1000/pulse:/run/host-pulse
+      # /run/user entier et en rslave, pas /run/user/1000/pulse : au boot, Docker peut
+      # demarrer le conteneur AVANT la connexion de pi, et /run/user/1000 est un tmpfs
+      # que logind monte a ce moment-la. Monte directement, le dossier serait cree vide
+      # par Docker et le tmpfs arriverait par-dessus sans jamais se voir ici.
+      - type: bind
+        source: /run/user
+        target: /run/host-user
+        bind:
+          propagation: rslave
