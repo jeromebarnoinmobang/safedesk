@@ -24,24 +24,6 @@ jobs:
       INSTALL_SUNSHINE: 'true'
       SUNSHINE_BIND_IP: ${{ secrets.SAFEDESK_SUNSHINE_BIND_IP }}
     steps:
-      - name: Verify VPC binding secret
+      - name: Deploy through the dedicated VPS worker
         shell: bash
-        run: |
-          test -n "$SUNSHINE_BIND_IP"
-          case "$SUNSHINE_BIND_IP" in 10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.2[0-9].*|172.3[0-1].*|192.168.*) ;; *) exit 1;; esac
-      - name: Deploy through the checked-out VPS workspace
-        shell: bash
-        run: |
-          install -m 600 /dev/null "$RUNNER_TEMP/deploy_key"
-          printf '%s' "${{ secrets.SAFEDESK_DEPLOY_KEY }}" > "$RUNNER_TEMP/deploy_key"
-          ssh -i "$RUNNER_TEMP/deploy_key" -o StrictHostKeyChecking=accept-new "${{ secrets.SAFEDESK_DEPLOY_USER }}@${{ secrets.SAFEDESK_DEPLOY_HOST }}" '
-            cd /opt/mobang/safedesk
-            git fetch --quiet origin main
-            git merge --ff-only origin/main
-            sudo install -D -m 0644 deploy/traefik/safedesk-vpc.yml /opt/mobang/traefik/dynamic/safedesk-vpc.yml
-            export INSTALL_CHROME=true INSTALL_SUNSHINE=true SUNSHINE_BIND_IP="'"$SUNSHINE_BIND_IP"'"
-            docker compose -f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.av.yml -f docker-compose.sync-vpc.yml -f docker-compose.phone.yml up -d --build
-          '
-      - name: Prove Sunshine is running
-        shell: bash
-        run: ssh -i "$RUNNER_TEMP/deploy_key" -o StrictHostKeyChecking=accept-new "${{ secrets.SAFEDESK_DEPLOY_USER }}@${{ secrets.SAFEDESK_DEPLOY_HOST }}" 'docker exec mobang-desktop sunshine --version'
+        run: sudo -n /usr/local/sbin/safedesk-deploy

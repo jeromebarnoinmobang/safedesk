@@ -1,0 +1,3 @@
+# Dedicated GitHub Actions runner: it may only execute the reviewed SafeDesk
+# deployment entrypoint, never arbitrary root commands.
+runner-mobang ALL=(root) NOPASSWD: /usr/local/sbin/safedesk-deploy
