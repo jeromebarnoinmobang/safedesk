@@ -7,4 +7,6 @@ fi
 until [ -S /tmp/.X11-unix/X1 ]; do sleep 2; done
 export HOME=/config
 export DISPLAY=:1
-exec s6-setuidgid abc sunshine
+# No D-Bus session bus reaches this service: a tray notification blocks the
+# pairing request thread forever, so a Moonlight PIN can never complete.
+exec s6-setuidgid abc sunshine system_tray=disabled
