@@ -40,7 +40,6 @@ while :; do
     --start-fullscreen \
     --no-first-run \
     --no-default-browser-check \
-    --disable-session-crashed-bubble \
-    --password-store=basic
+    --disable-session-crashed-bubble
   sleep 2
 done
