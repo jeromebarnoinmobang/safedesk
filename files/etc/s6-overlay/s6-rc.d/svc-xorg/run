@@ -1,0 +1,32 @@
+#!/usr/bin/with-contenv bash
+# SafeDesk: with SAFEDESK_XORG_TOUCH=1 the display is Xorg (dummy video driver
+# plus an XI2 touch screen, /etc/X11/safedesk-xorg.conf) instead of Xvfb, so a
+# finger on Moonlight is a real touch on the desktop: drag scrolls, pinch zooms.
+# Anything else runs the image's own Xvfb script, unchanged (run.xvfb).
+if [ "${SAFEDESK_XORG_TOUCH:-}" != "1" ] || [[ "${PIXELFLUX_WAYLAND,,}" == "true" ]] \
+   || [ ! -f /usr/lib/xorg/modules/drivers/dummy_drv.so ]; then
+  exec /etc/s6-overlay/s6-rc.d/svc-xorg/run.xvfb
+fi
+
+rm -f /tmp/.X1-lock /tmp/safedesk-touch.socket
+# The dummy driver needs no VT and no root: it tells Xorg to skip the console.
+exec s6-setuidgid abc \
+  /usr/lib/xorg/Xorg \
+    "${DISPLAY}" \
+    -config /etc/X11/safedesk-xorg.conf \
+    -configdir /etc/X11/safedesk-xorg.conf.d \
+    -logfile /tmp/Xorg.1.log \
+    -dpi 96 \
+    +extension COMPOSITE \
+    +extension DAMAGE \
+    +extension GLX \
+    +extension RANDR \
+    +extension RENDER \
+    +extension MIT-SHM \
+    +extension XFIXES \
+    +extension XTEST \
+    +iglx \
+    -nolisten tcp \
+    -novtswitch \
+    -ac \
+    -noreset

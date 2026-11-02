@@ -100,7 +100,16 @@ COPY files/custom-services.d/sunshine /custom-services.d/sunshine
 COPY files/custom-cont-init.d/safedesk-sunshine-uinput /custom-cont-init.d/safedesk-sunshine-uinput
 COPY files/custom-services.d/sunshine-input /custom-services.d/sunshine-input
 COPY files/usr/local/bin/safedesk-sunshine-input /usr/local/bin/safedesk-sunshine-input
-RUN chmod +x /custom-cont-init.d/safedesk-sunshine-uinput /custom-services.d/sunshine-input              /usr/local/bin/safedesk-sunshine-input
+RUN chmod +x /custom-cont-init.d/safedesk-sunshine-uinput /custom-services.d/sunshine-input \
+             /usr/local/bin/safedesk-sunshine-input
+# Native touch for Moonlight, opt-in with SAFEDESK_XORG_TOUCH=1: Xorg with the dummy
+# video driver and an XI2 touch screen replaces Xvfb (files/etc/X11/safedesk-xorg.conf).
+# Without the variable, svc-xorg runs the image's own Xvfb script (run.xvfb).
+RUN mv /etc/s6-overlay/s6-rc.d/svc-xorg/run /etc/s6-overlay/s6-rc.d/svc-xorg/run.xvfb; \
+    mkdir -p /etc/X11/safedesk-xorg.conf.d
+COPY files/etc/X11/safedesk-xorg.conf /etc/X11/safedesk-xorg.conf
+COPY files/etc/s6-overlay/s6-rc.d/svc-xorg/run /etc/s6-overlay/s6-rc.d/svc-xorg/run
+RUN chmod +x /etc/s6-overlay/s6-rc.d/svc-xorg/run
 
 # --- OPTIONNEL : forge APK in-desktop (JDK + SDK Android + gradle) ---
 # Permet de construire et signer les applications SafeDesk DEPUIS le bureau.

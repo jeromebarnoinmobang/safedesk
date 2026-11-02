@@ -1,16 +1,20 @@
 #!/lsiopy/bin/python3
-"""Replay Sunshine's virtual input devices into the Xvfb session through XTest.
+"""Replay Sunshine's virtual input devices into the X session.
 
 Sunshine on Linux injects Moonlight input only through uinput devices
-("... passthrough").  The desktop runs on Xvfb, which never reads evdev
-devices, so without this bridge a tap, a click or a key from Moonlight reaches
-the kernel and stops there.  Measured on 02/11/2026 with the Pi thin client.
+("... passthrough").  The X server here never reads evdev devices, so without
+this bridge a tap, a click or a key from Moonlight reaches the kernel and stops
+there.  Measured on 02/11/2026 with the Pi thin client.
 
-Touch is replayed as the left button of the core pointer (one finger: tap =
-click, drag = drag); further fingers are ignored.
+Keyboard and mouse go through XTest.  Touch goes to the XI2 touch screen of
+the SafeDesk Xorg (inputtest driver, /etc/X11/safedesk-xorg.conf): every
+finger is a real touch, so apps scroll on drag and zoom on pinch.  On Xvfb,
+which has no such device, the first finger is the left button instead.
 """
 import os
 import selectors
+import socket
+import struct
 import sys
 import time
 
@@ -22,6 +26,8 @@ from Xlib.ext import xtest
 BUTTONS = {e.BTN_LEFT: 1, e.BTN_MIDDLE: 2, e.BTN_RIGHT: 3, e.BTN_SIDE: 8, e.BTN_EXTRA: 9}
 # Linux keycodes map to X keycodes with the evdev offset (Xvfb keymap: 38 = a).
 X_KEYCODE_OFFSET = 8
+TOUCH_SOCKET = "/tmp/safedesk-touch.socket"
+XI_TOUCH_BEGIN, XI_TOUCH_UPDATE, XI_TOUCH_END = 18, 19, 20
 
 
 def log(msg):
@@ -35,29 +41,57 @@ class Screen:
         self.size = (1, 1)
         self.checked = 0.0
 
-    def scale(self, dev, code, value, axis):
+    @staticmethod
+    def fraction(dev, code, value):
+        info = dev.absinfo(code)
+        return (value - info.min) / max(info.max - info.min, 1)
+
+    def pixels(self, fraction, axis):
         # Selkies resizes the root window with RandR, so read it again now and then.
         if time.monotonic() - self.checked > 1:
             g = self.root.get_geometry()
             self.size, self.checked = (g.width, g.height), time.monotonic()
-        info = dev.absinfo(code)
-        span = max(info.max - info.min, 1)
-        return round((value - info.min) * (self.size[axis] - 1) / span)
+        return round(fraction * (self.size[axis] - 1))
+
+
+class TouchScreen:
+    """Client of the inputtest driver's socket (xf86-input-inputtest-protocol.h,
+    version 1.1).  Its axes span 0..0xffff over the whole screen."""
+
+    VALUATORS = 64
+
+    def __init__(self, path):
+        self.sock = socket.socket(socket.AF_UNIX)
+        self.sock.connect(path)
+        self.sock.sendall(struct.pack("<IIHH", 12, 0, 1, 1))  # ClientVersion 1.1
+        self.sock.recv(64)  # ServerVersion
+
+    def send(self, touch_id, touch_type, fx, fy):
+        values = [0.0] * self.VALUATORS
+        values[0], values[1] = fx * 0xFFFF, fy * 0xFFFF
+        body = (struct.pack("<II", touch_id, touch_type)
+                + struct.pack("<I8s4x", 0, bytes([0b11]) + bytes(7))
+                + struct.pack(f"<{self.VALUATORS}d", *values)
+                + bytes(8 * self.VALUATORS))
+        self.sock.sendall(struct.pack("<II", 8 + len(body), 6) + body)  # 6 = TOUCH
 
 
 class Bridge:
     """State for one Sunshine device; feed() takes its events in order."""
 
-    def __init__(self, dev, screen):
+    def __init__(self, dev, screen, touchscreen):
         self.dev, self.screen, self.d = dev, screen, screen.d
+        self.touchscreen = touchscreen
         caps = dev.capabilities()
         abs_codes = {c for c, _ in caps.get(e.EV_ABS, [])}
         self.touch = e.ABS_MT_POSITION_X in abs_codes
         self.x = self.y = None
         self.moved = False
         self.dx = self.dy = 0
-        # touch: slot -> [tracking id, x, y]; the primary slot drives the pointer
-        self.slot, self.slots, self.primary, self.pressed = 0, {}, None, False
+        # touch: slot -> [tracking id, x, y] with x, y as screen fractions
+        self.slot, self.slots, self.moved_slots, self.begun = 0, {}, set(), {}
+        # pointer emulation (no touch screen): the primary slot is the left button
+        self.primary, self.pressed = None, False
 
     def feed(self, ev):
         if ev.type == e.EV_KEY:
@@ -97,17 +131,18 @@ class Bridge:
             self.slots.setdefault(self.slot, [None, None, None])[0] = None if value < 0 else value
         # A touch screen also reports single-touch ABS_X/ABS_Y; only its slots count.
         elif code == (e.ABS_MT_POSITION_X if self.touch else e.ABS_X):
-            self.position(0, self.screen.scale(self.dev, code, value, 0))
+            self.position(0, Screen.fraction(self.dev, code, value))
         elif code == (e.ABS_MT_POSITION_Y if self.touch else e.ABS_Y):
-            self.position(1, self.screen.scale(self.dev, code, value, 1))
+            self.position(1, Screen.fraction(self.dev, code, value))
 
-    def position(self, axis, value):
+    def position(self, axis, fraction):
         if self.touch:
-            self.slots.setdefault(self.slot, [None, None, None])[1 + axis] = value
+            self.slots.setdefault(self.slot, [None, None, None])[1 + axis] = fraction
+            self.moved_slots.add(self.slot)
         elif axis == 0:
-            self.x, self.moved = value, True
+            self.x, self.moved = self.screen.pixels(fraction, 0), True
         else:
-            self.y, self.moved = value, True
+            self.y, self.moved = self.screen.pixels(fraction, 1), True
 
     def report(self):
         if self.dx or self.dy:
@@ -117,11 +152,33 @@ class Bridge:
             if self.moved and self.x is not None and self.y is not None:
                 xtest.fake_input(self.d, X.MotionNotify, x=self.x, y=self.y)
             self.moved = False
-        else:
+        elif self.touchscreen:
             self.touch_report()
+        else:
+            self.emulate_report()
         self.d.flush()
 
     def touch_report(self):
+        for slot, (tid, x, y) in sorted(self.slots.items()):
+            begun = self.begun.get(slot)
+            if begun is not None and begun != tid:
+                self.touchscreen.send(begun, XI_TOUCH_END, *self.last(slot))
+                del self.begun[slot]
+                begun = None
+            if tid is None or x is None or y is None:
+                continue
+            if begun is None:
+                self.touchscreen.send(tid, XI_TOUCH_BEGIN, x, y)
+                self.begun[slot] = tid
+            elif slot in self.moved_slots:
+                self.touchscreen.send(tid, XI_TOUCH_UPDATE, x, y)
+        self.moved_slots.clear()
+
+    def last(self, slot):
+        _, x, y = self.slots[slot]
+        return (x or 0.0), (y or 0.0)
+
+    def emulate_report(self):
         if self.primary is None:
             down = [s for s, (tid, _, _) in sorted(self.slots.items()) if tid is not None]
             self.primary = down[0] if down else None
@@ -129,7 +186,8 @@ class Bridge:
             return
         tid, x, y = self.slots.get(self.primary, [None, None, None])
         if tid is not None and x is not None and y is not None:
-            xtest.fake_input(self.d, X.MotionNotify, x=x, y=y)
+            px, py = self.screen.pixels(x, 0), self.screen.pixels(y, 1)
+            xtest.fake_input(self.d, X.MotionNotify, x=px, y=py)
             if not self.pressed:
                 xtest.fake_input(self.d, X.ButtonPress, 1)
                 self.pressed = True
@@ -144,9 +202,11 @@ def main():
     if not d.has_extension("XTEST"):
         sys.exit("[sunshine-input] the X server has no XTEST extension")
     screen = Screen(d)
+    touchscreen = TouchScreen(TOUCH_SOCKET) if os.path.exists(TOUCH_SOCKET) else None
     sel = selectors.DefaultSelector()
     open_paths = set()
-    log(f"bridging Sunshine devices into {d.get_display_name()}")
+    log(f"bridging Sunshine devices into {d.get_display_name()}, touch: "
+        + ("XI2 touch screen" if touchscreen else "left button (no touch screen)"))
     while True:
         # Sunshine creates its mouse and keyboard at start, touch and pen per session.
         for path in evdev.list_devices():
@@ -159,7 +219,7 @@ def main():
             if "passthrough" not in dev.name.lower():
                 dev.close()
                 continue
-            sel.register(dev, selectors.EVENT_READ, Bridge(dev, screen))
+            sel.register(dev, selectors.EVENT_READ, Bridge(dev, screen, touchscreen))
             open_paths.add(path)
             log(f"attached {path} {dev.name!r}")
         for key, _ in sel.select(timeout=2):
