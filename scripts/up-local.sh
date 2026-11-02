@@ -3,6 +3,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# ── THIN CLIENT: the marker wins over every local variant ────────────────────
+# /etc/safedesk/thin-client means this machine only streams a remote SafeDesk
+# (thin-client/, Moonlight). Measured on 02/11/2026: the local touch desktop took
+# the DRM output 2 s after the Moonlight session started and closed it, leaving
+# the LightDM greeter on screen. Remove the marker to get the local desktop back.
+if [ -f /etc/safedesk/thin-client ]; then
+  echo "[thin-client] marker /etc/safedesk/thin-client present -> local desktop not started"
+  exit 0
+fi
+
 # ── MODE TACTILE : le marqueur decide ─────────────────────────────────────────
 # scripts/up-touch.sh pose /etc/safedesk/touch. Tant qu'il existe, le demarrage
 # de la machine (safedesk-stack.service -> ce script) doit lancer la variante

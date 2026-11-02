@@ -35,7 +35,11 @@ install -D -m 0644 thin-client/openbox-autostart ~/.config/openbox/autostart
 install -D -m 0644 thin-client/moonlight-safedesk.desktop ~/.local/share/applications/moonlight-safedesk.desktop
 printf '%s\n' '<private Sunshine address>' > ~/.config/safedesk-thin-client/moonlight-host
 sudo install -m 0644 thin-client/lightdm-autologin.conf /etc/lightdm/lightdm.conf.d/50-safedesk-autologin.conf
+touch /etc/safedesk/thin-client   # keeps safedesk-stack.service from starting the local desktop
+docker stop mobang-desktop mobang-desktop-sync
 ```
+
+Roll back with `rm /etc/safedesk/thin-client` and `sudo systemctl restart safedesk-stack`.
 
 Pair once with `flatpak run com.moonlight_stream.Moonlight pair <host> --pin <4 digits>`
 and submit the same PIN to Sunshine (`POST /api/pin` on port 47990, or its web UI).
