@@ -1,0 +1,31 @@
+# The public Internet has no route to SafeDesk.  Traffic that reaches this
+# router originates from the VPS VPC bridge; only this trusted router adds the
+# marker that disables Webtop's Basic Auth inside the container.
+http:
+  middlewares:
+    safedesk-vpc-only:
+      ipAllowList:
+        sourceRange:
+          - "172.18.0.1/32"
+    safedesk-vpc-auth:
+      headers:
+        customRequestHeaders:
+          X-SafeDesk-VPC: "true"
+  routers:
+    safedesk-vpc:
+      rule: "Host(`desktop.mobang.fr`)"
+      entryPoints:
+        - websecure
+      priority: 60
+      middlewares:
+        - safedesk-vpc-only
+        - safedesk-vpc-auth
+        - security-headers@file
+      service: safedesk-vps
+      tls:
+        certResolver: letsencrypt
+  services:
+    safedesk-vps:
+      loadBalancer:
+        servers:
+          - url: "http://mobang-desktop:3000"

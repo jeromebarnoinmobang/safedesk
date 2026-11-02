@@ -8,6 +8,7 @@ on:
       - 'Dockerfile'
       - 'docker-compose*.yml'
       - 'files/**'
+      - 'deploy/traefik/**'
       - 'scripts/up-remote.sh'
       - '.github/workflows/deploy-vps.yml'
 
@@ -17,11 +18,14 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Production is changed only by the dedicated GitHub Actions worker hosted
+    # on the VPS; no interactive deployment path is used.
+    runs-on: [self-hosted, mobang, deploy]
     environment: production
     permissions:
       contents: read
     env:
+      INSTALL_CHROME: 'true'
       INSTALL_SUNSHINE: 'true'
       SUNSHINE_BIND_IP: ${{ secrets.SAFEDESK_SUNSHINE_BIND_IP }}
     steps:
@@ -39,7 +43,8 @@ jobs:
             cd /opt/mobang/safedesk
             git fetch --quiet origin main
             git merge --ff-only origin/main
-            export INSTALL_SUNSHINE=true SUNSHINE_BIND_IP="'"$SUNSHINE_BIND_IP"'"
+            sudo install -D -m 0644 deploy/traefik/safedesk-vpc.yml /opt/mobang/traefik/dynamic/safedesk-vpc.yml
+            export INSTALL_CHROME=true INSTALL_SUNSHINE=true SUNSHINE_BIND_IP="'"$SUNSHINE_BIND_IP"'"
             docker compose -f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.av.yml -f docker-compose.sync-vpc.yml -f docker-compose.phone.yml up -d --build
           '
       - name: Prove Sunshine is running

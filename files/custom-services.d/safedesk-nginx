@@ -5,10 +5,22 @@
 #   Resolution DNS DIFFEREE (resolver Docker + variable) : nginx demarre et se
 #   recharge meme si le sidecar voice n'est pas deploye (seul /voice/ fait 502).
 CONF=/etc/nginx/sites-available/default
+# The VPS router adds X-SafeDesk-VPC only after it has established that the
+# request comes from the private VPN path.  Keep the public endpoint protected
+# by the regular Webtop Basic Auth prompt; the Pi must never store that secret.
+cat > /etc/nginx/conf.d/safedesk-vpc-auth.conf <<'EOF'
+map $http_x_safedesk_vpc $safedesk_auth_realm {
+  default "Login";
+  "true"   off;
+}
+EOF
 for i in $(seq 1 60); do
   [ -f "$CONF" ] && grep -q "auth_basic_user_file" "$CONF" && break
   sleep 1
 done
+if grep -q 'auth_basic               "Login";' "$CONF" 2>/dev/null; then
+  sed -i 's/auth_basic               "Login";/auth_basic               $safedesk_auth_realm;/' "$CONF"
+fi
 if ! grep -q "location /safedesk/" "$CONF" 2>/dev/null; then
   # inserer le bloc apres CHAQUE ligne auth_basic_user_file (les 2 vhosts)
   awk '
