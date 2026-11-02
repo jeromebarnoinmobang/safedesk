@@ -12,10 +12,6 @@ on:
       - 'scripts/up-remote.sh'
       - '.github/workflows/deploy-vps.yml'
 
-concurrency:
-  group: safedesk-vps
-  cancel-in-progress: false
-
 jobs:
   deploy:
     # Production is changed only by the dedicated GitHub Actions worker hosted
