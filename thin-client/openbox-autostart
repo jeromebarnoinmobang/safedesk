@@ -1,0 +1,2 @@
+# Openbox does not process ~/.config/autostart itself.
+flatpak run com.moonlight_stream.Moonlight &

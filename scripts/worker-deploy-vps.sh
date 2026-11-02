@@ -16,5 +16,5 @@ docker compose \
   -f docker-compose.av.yml \
   -f docker-compose.sync-vpc.yml \
   -f docker-compose.phone.yml \
-  up -d --build
+  up -d --build --force-recreate desktop
 docker exec mobang-desktop sunshine --version
