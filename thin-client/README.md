@@ -24,6 +24,24 @@ remove, or alter an existing local SafeDesk/Docker installation. After signing i
 the kiosk opens the stream automatically on graphical login and restarts Chromium after
 a crash or disconnect.
 
+## Moonlight mode (Mobang VPS)
+
+The Mobang Pi streams the VPS through Moonlight (Flatpak) over the private VPC instead
+of the Chromium kiosk. As the `pi` user:
+
+```sh
+install -D -m 0755 thin-client/bin/safedesk-moonlight ~/.local/bin/safedesk-moonlight
+install -D -m 0644 thin-client/openbox-autostart ~/.config/openbox/autostart
+install -D -m 0644 thin-client/moonlight-safedesk.desktop ~/.local/share/applications/moonlight-safedesk.desktop
+printf '%s\n' '<private Sunshine address>' > ~/.config/safedesk-thin-client/moonlight-host
+sudo install -m 0644 thin-client/lightdm-autologin.conf /etc/lightdm/lightdm.conf.d/50-safedesk-autologin.conf
+```
+
+Pair once with `flatpak run com.moonlight_stream.Moonlight pair <host> --pin <4 digits>`
+and submit the same PIN to Sunshine (`POST /api/pin` on port 47990, or its web UI).
+After that, every graphical login streams the `Desktop` app and restarts the stream
+when it ends or the VPN drops.
+
 ## Validate before retiring the local stack
 
 1. Reboot or log out/in and confirm the remote desktop opens.

@@ -1,8 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=SafeDesk (VPS)
-Comment=Open the Moonlight client for the private SafeDesk VPS
-Exec=flatpak run com.moonlight_stream.Moonlight
+Comment=Stream the private SafeDesk VPS desktop with Moonlight
+Exec=sh -lc 'exec "$HOME/.local/bin/safedesk-moonlight"'
 Terminal=false
-X-GNOME-Autostart-enabled=true
-X-GNOME-Autostart-Delay=3
+Categories=Network;RemoteAccess;

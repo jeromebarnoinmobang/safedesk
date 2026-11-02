@@ -1,0 +1,23 @@
+#!/bin/sh
+# SafeDesk Moonlight launcher.  This runs on the Raspberry Pi and streams the
+# desktop of an already paired Sunshine host.
+set -eu
+
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/safedesk-thin-client"
+host_file="$config_dir/moonlight-host"
+app=${SAFEDESK_MOONLIGHT_APP:-Desktop}
+
+if [ ! -r "$host_file" ]; then
+  printf '%s\n' "Moonlight host is not configured. Write the private Sunshine address to $host_file." >&2
+  exit 64
+fi
+
+host=$(tr -d '\r\n' < "$host_file")
+[ -n "$host" ] || { printf '%s\n' "Moonlight host file is empty." >&2; exit 64; }
+
+# The VPN may come up after the graphical session; a closed or failed stream
+# must return to the desktop, not require an SSH intervention.
+while :; do
+  flatpak run com.moonlight_stream.Moonlight stream "$host" "$app" || true
+  sleep 5
+done
