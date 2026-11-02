@@ -6,6 +6,10 @@ set -eu
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/safedesk-thin-client"
 host_file="$config_dir/moonlight-host"
 app=${SAFEDESK_MOONLIGHT_APP:-Desktop}
+# Measured on 02/11/2026 over the VPC from a Wi-Fi Pi: 1080p60 at 20 Mbps lost
+# frames continuously and the control stream timed out; the VPS desktop is
+# 1024x768, and this profile streamed with no loss.
+options=${SAFEDESK_MOONLIGHT_OPTIONS:---resolution 1024x768 --fps 30 --bitrate 3000 --display-mode borderless}
 
 if [ ! -r "$host_file" ]; then
   printf '%s\n' "Moonlight host is not configured. Write the private Sunshine address to $host_file." >&2
@@ -16,8 +20,13 @@ host=$(tr -d '\r\n' < "$host_file")
 [ -n "$host" ] || { printf '%s\n' "Moonlight host file is empty." >&2; exit 64; }
 
 # The VPN may come up after the graphical session; a closed or failed stream
-# must return to the desktop, not require an SSH intervention.
+# must return to the desktop, not require an SSH intervention. Moonlight shows
+# a modal error when the host is unreachable, so wait for Sunshine first.
 while :; do
-  flatpak run com.moonlight_stream.Moonlight stream "$host" "$app" || true
+  until curl -fsS -m 3 -o /dev/null "http://$host:47989/serverinfo"; do
+    sleep 3
+  done
+  # shellcheck disable=SC2086 # options is a word list
+  flatpak run com.moonlight_stream.Moonlight stream "$host" "$app" $options || true
   sleep 5
 done
