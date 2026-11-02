@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bash
+# Moonlight input -> desktop.  Sunshine injects through uinput devices that
+# Xvfb never reads; safedesk-sunshine-input replays them through XTest.
+# Inert if the image was built without INSTALL_SUNSHINE=true.
+if ! command -v sunshine >/dev/null 2>&1; then
+  sleep infinity
+fi
+until [ -S /tmp/.X11-unix/X1 ]; do sleep 2; done
+export DISPLAY=:1
+exec s6-setuidgid abc /usr/local/bin/safedesk-sunshine-input

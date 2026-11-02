@@ -94,6 +94,12 @@ RUN set -eux; \
 
 # Service s6 : demarre Sunshine quand la session graphique est prete (inerte si non installe)
 COPY files/custom-services.d/sunshine /custom-services.d/sunshine
+# Moonlight input: Sunshine writes uinput devices that Xvfb never reads; the bridge
+# replays them through XTest (see files/usr/local/bin/safedesk-sunshine-input).
+COPY files/custom-cont-init.d/safedesk-sunshine-uinput /custom-cont-init.d/safedesk-sunshine-uinput
+COPY files/custom-services.d/sunshine-input /custom-services.d/sunshine-input
+COPY files/usr/local/bin/safedesk-sunshine-input /usr/local/bin/safedesk-sunshine-input
+RUN chmod +x /custom-cont-init.d/safedesk-sunshine-uinput /custom-services.d/sunshine-input              /usr/local/bin/safedesk-sunshine-input
 
 # --- OPTIONNEL : forge APK in-desktop (JDK + SDK Android + gradle) ---
 # Permet de construire et signer les applications SafeDesk DEPUIS le bureau.

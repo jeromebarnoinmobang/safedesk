@@ -13,4 +13,9 @@ services:
       - "${SUNSHINE_BIND_IP:?}:47998:47998/udp"
       - "${SUNSHINE_BIND_IP:?}:47999:47999/udp"
       - "${SUNSHINE_BIND_IP:?}:48000:48000/udp"
-      - "${SUNSHINE_BIND_IP:?}:48002:48002/udp"
+      - "${SUNSHINE_BIND_IP:?}:48002:48002/udp"    # Moonlight input: Sunshine creates its virtual mouse, keyboard and touch
+    # screen through /dev/uinput, and the sunshine-input bridge reads them back
+    # (/dev comes from docker-compose.av.yml).
+    device_cgroup_rules:
+      - 'c 10:223 rmw'  # /dev/uinput
+      - 'c 13:* rmw'    # /dev/input/event*

@@ -1,0 +1,18 @@
+#!/usr/bin/with-contenv bash
+# Sunshine creates its virtual mouse, keyboard and touch screen through
+# /dev/uinput (host /dev, mounted by docker-compose.av.yml).  The host node is
+# root-only (measured on 02/11/2026: "Unable to create virtual touch screen:
+# Permission denied"), so give it the host's input group, the group of the
+# event nodes it creates, and let abc join it: Sunshine writes uinput, the
+# bridge (sunshine-input service) reads the event nodes back.
+command -v sunshine >/dev/null 2>&1 || exit 0
+[ -c /dev/uinput ] || { echo "[sunshine-uinput] no /dev/uinput: Moonlight input disabled"; exit 0; }
+gid=""
+for dev in /dev/input/event*; do
+  [ -c "$dev" ] && { gid=$(stat -c %g "$dev"); break; }
+done
+[ -n "$gid" ] || { echo "[sunshine-uinput] no /dev/input/event* to take the input group from"; exit 0; }
+getent group "$gid" >/dev/null || groupadd -g "$gid" "hostinput$gid"
+chgrp "$gid" /dev/uinput
+chmod 0660 /dev/uinput
+usermod -a -G "$(getent group "$gid" | cut -d: -f1)" abc
