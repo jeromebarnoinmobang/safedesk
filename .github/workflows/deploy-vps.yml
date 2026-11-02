@@ -1,0 +1,43 @@
+name: Deploy SafeDesk VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose*.yml'
+      - 'files/**'
+      - 'scripts/up-remote.sh'
+      - '.github/workflows/deploy-vps.yml'
+
+concurrency:
+  group: safedesk-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, mobang-prod]
+    environment: production
+    permissions:
+      contents: read
+    env:
+      INSTALL_SUNSHINE: 'true'
+      SUNSHINE_BIND_IP: ${{ secrets.SAFEDESK_SUNSHINE_BIND_IP }}
+    steps:
+      - name: Verify VPC binding secret
+        shell: bash
+        run: |
+          test -n "$SUNSHINE_BIND_IP"
+          case "$SUNSHINE_BIND_IP" in 10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.2[0-9].*|172.3[0-1].*|192.168.*) ;; *) exit 1;; esac
+      - name: Deploy through the checked-out VPS workspace
+        shell: bash
+        working-directory: /opt/mobang/safedesk
+        run: |
+          git fetch --quiet origin main
+          git merge --ff-only origin/main
+          export INSTALL_SUNSHINE SUNSHINE_BIND_IP
+          docker compose -f docker-compose.yml -f docker-compose.remote.yml -f docker-compose.av.yml -f docker-compose.sync-vpc.yml -f docker-compose.phone.yml up -d --build
+      - name: Prove Sunshine is running
+        shell: bash
+        run: docker exec mobang-desktop sunshine --version
