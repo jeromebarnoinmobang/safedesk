@@ -89,6 +89,7 @@ RUN set -eux; \
       fi; \
       curl -fsSLo /tmp/sunshine.deb "$SUNSHINE_URL"; \
       apt-get install -y --no-install-recommends /tmp/sunshine.deb; \
+      apt-get install -y --no-install-recommends xserver-xorg-video-dummy xinput; \
       rm -f /tmp/sunshine.deb; rm -rf /var/lib/apt/lists/*; \
     fi
 
