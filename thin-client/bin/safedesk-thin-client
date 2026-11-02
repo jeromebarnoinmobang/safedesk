@@ -1,0 +1,46 @@
+#!/bin/sh
+# SafeDesk thin client launcher.  This runs on the Raspberry Pi, never on the
+# machine which owns the desktop session.
+set -eu
+
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/safedesk-thin-client"
+url_file="$config_dir/stream-url"
+
+if [ ! -r "$url_file" ]; then
+  printf '%s\n' "SafeDesk thin client is not configured. Run thin-client/install.sh <https-url>." >&2
+  exit 64
+fi
+
+stream_url=$(tr -d '\r\n' < "$url_file")
+case "$stream_url" in
+  https://*) ;;
+  *)
+    printf '%s\n' "Refusing a non-HTTPS SafeDesk URL." >&2
+    exit 64
+    ;;
+esac
+
+
+if command -v chromium >/dev/null 2>&1; then
+  browser=chromium
+elif command -v chromium-browser >/dev/null 2>&1; then
+  browser=chromium-browser
+else
+  printf '%s\n' "Chromium is missing. Install it, then start SafeDesk again." >&2
+  exit 69
+fi
+
+# A browser crash or a Wi-Fi/VPN interruption must return to the desktop, not
+# require an SSH intervention. Chromium reconnects the WebRTC session itself;
+# restarting it covers a closed/crashed browser.
+while :; do
+  "$browser" \
+    --kiosk \
+    --app="$stream_url" \
+    --start-fullscreen \
+    --no-first-run \
+    --no-default-browser-check \
+    --disable-session-crashed-bubble \
+    --password-store=basic
+  sleep 2
+done

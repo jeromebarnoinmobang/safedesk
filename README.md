@@ -43,6 +43,17 @@ cp .env.example .env      # definissez au moins DESKTOP_PASSWORD
 
 Le bureau repond sur <http://localhost:3000> (publie sur la boucle locale uniquement).
 
+## Raspberry Pi en client leger
+
+Un Raspberry Pi peut servir uniquement d'ecran, clavier, souris et audio pour un
+SafeDesk execute sur une autre machine. Cette variante ne lance ni Docker ni Syncthing
+sur le Pi : un seul hote conserve l'etat du bureau et des navigateurs, ce qui elimine
+les conflits de profils entre deux bureaux actifs.
+
+Le dossier [`thin-client/`](thin-client/README.md) installe un kiosque Chromium
+reversible. Il exige une URL HTTPS et ne modifie jamais une installation SafeDesk locale
+existante sans une action explicite de l'administrateur.
+
 ### Deploiement distant (streame)
 
 Adaptez `docker-compose.remote.yml` a votre reverse proxy, pointez le DNS du sous-domaine
