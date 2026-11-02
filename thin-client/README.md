@@ -48,6 +48,10 @@ After that, every graphical login waits for Sunshine, streams the `Desktop` app 
 stream when it ends. A stream that drops mid-session shows Moonlight's error dialog;
 one tap on OK starts the next attempt.
 
+Touch, mouse and keyboard reach the VPS desktop through Sunshine's uinput devices,
+replayed into Xvfb by the `sunshine-input` service (one finger = left button: tap =
+click, drag = drag). Its log lines start with `[sunshine-input]` in `docker logs`.
+
 `moonlight pair` needs the real X session (`DISPLAY=:0`): under
 `QT_QPA_PLATFORM=offscreen` it never stores the server certificate.
 
