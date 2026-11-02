@@ -21,7 +21,6 @@ jobs:
     # Production is changed only by the dedicated GitHub Actions worker hosted
     # on the VPS; no interactive deployment path is used.
     runs-on: [self-hosted, mobang, deploy]
-    environment: production
     permissions:
       contents: read
     env:
