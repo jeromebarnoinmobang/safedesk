@@ -12,7 +12,7 @@ Chacun corrige un échec vécu et payé :
 1. **Tester les hypothèses avant de construire**, trié par **cout du test** et non par risque
    perçu. TTS RunPod et CORS auraient été cotés « moyen » la veille de leur chute : coter est
    plus cher que tester. Cout : deux `curl` et une question. Économie : plusieurs jours.
-2. **La fiche à en-tetes fixes**, avec `Out of scope — DO NOT`, `Files OWNED / READ ONLY`,
+2. **Le backlog item à en-tetes fixes**, avec `Out of scope — DO NOT`, `Files OWNED / READ ONLY`,
    `Known traps`, et surtout `Deliverable : a report without a commit is a FAILED task`.
    Corrige mécaniquement les agents qui rendaient un rapport sans livrable.
 3. **Les pièges connus collés dans chaque brief.** Le `pkill -f` a tué le shell trois fois.
@@ -27,10 +27,10 @@ Tout le reste du skill est de la plomberie autour de ces quatre points.
 | Rejeté | Motif |
 |---|---|
 | **Cotation létalité × incertitude (3×3, seuil « 3 et ≥2 »)** | Machinerie de tri qui remplace une question. Le tag est posé au moment d'ignorance maximale — les deux murs réels seraient passés dessous. Remplacé par : cout du test. |
-| **Routeur à 3 tailles avec déclencheurs multiples** | Résout à la taille maximale presque toujours (« ≥ 2 hypothèses OU une dépendance externe » = tout chantier réel). Remplacé par une question non estimative : « puis-je écrire le message de commit avant de commencer ? » |
+| **Routeur à 3 tailles avec déclencheurs multiples** | Résout à la taille maximale presque toujours (« ≥ 2 hypothèses OU une dépendance externe » = tout Epic réel). Remplacé par une question non estimative : « puis-je écrire le message de commit avant de commencer ? » |
 | **Cartographie systématique à 3-4 agents parallèles** | 180-450 k tokens sur la seule foi d'un succès unique, jamais comparé à 1 agent + `grep`. Défaut ramené à 1 agent ; fan-out sur condition. |
 | **Agent synthétiseur séparé** | La session principale lit N fichiers. Un agent entier économisé. |
-| **Triple représentation des taches** (plan + fiche + jsonl + Plane) | Le drift naissait au jour 0 : le JSON ne reprenait que 2 des 5 critères. Une seule source : la fiche **est** le payload. |
+| **Triple représentation des taches** (plan + backlog item + jsonl + Plane) | Le drift naissait au jour 0 : le JSON ne reprenait que 2 des 5 critères. Une seule source : le backlog item **est** le payload. |
 | **CONSTITUTION.md + PITFALLS.md + CLAUDE.md + mémoire** | Quatre étages pour « les choses permanentes », zéro règle de non-duplication. Réponse : `CLAUDE.md`, point. |
 | **Passe 5 du réfuteur (prémortem)** | Le poste le plus cher en tokens, le plus faible en preuve (étude humaine 1989, transfert LLM non démontré). Les passes 1-3 portent le gain chiffré (11 % → 85,4 %). |
 | **Nomenclature G0…G7 / P0…P9** | Deux gates réels : hypothèses testées, plan réfuté. Le reste était des étiquettes sur des transitions. |
@@ -38,25 +38,25 @@ Tout le reste du skill est de la plomberie autour de ces quatre points.
 | **Vérificateur LLM par tache** | Sur du code correct, le critique naïf produit du faux positif massif ; l'auteur ne peut pas s'auto-juger. Le signal sur le code, c'est l'exécution. |
 | **Seuils en minutes ou en lignes prévisionnelles** (« > 1 h », « > 300 lignes », « Must ≤ 50 % de l'effort ») | Demandent une estimation de durée à quelqu'un en cécité temporelle. Sautés en silence, et la discipline de découpage part avec. Remplacés par des seuils comptables. |
 | **RICE / WSJF** | Reach ≈ 1, Confidence inventée. Le calcul coute plus qu'il ne rapporte en solo. Tie-breaker unique : « quelle tache tue la plus grosse hypothèse ? » |
-| **Écrire le skill avant d'avoir tourné le pattern à la main** | Le méta-chantier est le mode de consommation classique de ce genre de framework. Le skill livré ici est volontairement minimal : 1 SKILL.md, 4 références, 1 script. S'il ne survit pas à deux chantiers, il n'y avait rien à outiller. |
+| **Écrire le skill avant d'avoir tourné le pattern à la main** | Le méta-Epic est le mode de consommation classique de ce genre de framework. Le skill livré ici est volontairement minimal : 1 SKILL.md, 4 références, 1 script. S'il ne survit pas à deux Epics, il n'y avait rien à outiller. |
 
 ## Les 5 pièges connus du pattern lui-même
 
-1. **Le méta-chantier.** Améliorer le pattern devient le projet. Règle : on ne touche au
-   skill qu'après un chantier réel terminé, et seulement pour supprimer ce qui n'a pas servi.
+1. **Le méta-Epic.** Améliorer le pattern devient le projet. Règle : on ne touche au
+   skill qu'après un Epic réel terminé, et seulement pour supprimer ce qui n'a pas servi.
 2. **Empiler des plans jamais exécutés.** Cadrer est gratifiant, exécuter ne l'est pas.
-   Deux verrous : interdit d'ouvrir un chantier tant qu'un chantier existant a un plan et
+   Deux verrous : interdit d'ouvrir un Epic tant qu'un Epic existant a un plan et
    zéro commit ; le plan n'est détaillé que pour les 3 prochaines taches.
-3. **Trois chantiers ouverts, aucun fini, aucun mort.** WIP = 1, vérifié par `etat.sh`, plus
+3. **Trois Epics ouverts, aucun fini, aucun mort.** WIP = 1, vérifié par `etat.sh`, plus
    un rite d'abandon déclenché mécaniquement (deux ouvertures de session sans commit) avec
    une question binaire continuer/tuer.
 4. **Le spike qui ment de façon plausible.** Verdict TENUE sur un test qui a testé la
    mauvaise condition (pod chaud au lieu de pod froid). Parade : les 3 questions fermées de
    controle appliquées aux spikes autant qu'aux taches.
 5. **La sur-cérémonie qui revient par la porte de derrière.** Chaque ajout au pattern doit
-   remplir un champ de la fiche de tache. Un artefact qui ne remplit aucun champ est
-   supprimé. Un chantier sous 4 taches est mathématiquement perdant : c'est du FLUX, pas un
-   chantier.
+   remplir un champ du backlog item. Un artefact qui ne remplit aucun champ est
+   supprimé. Un Epic sous 4 taches est mathématiquement perdant : c'est du FLUX, pas un
+   Epic.
 
 ## Ce qu'on mesure (et rien d'autre)
 
