@@ -46,7 +46,7 @@ infra          https://github.com/jeromebarnoinmobang/infra.git
 intendant      https://github.com/jeromebarnoinmobang/intendant.git
 safedesk       https://github.com/jeromebarnoinmobang/safedesk.git
 mcp-poste      AUCUN DISTANT
-chantier       AUCUN DISTANT
+epic           AUCUN DISTANT
 workbench      /tmp/workbench.bundle
 openwork-app   /tmp/openwork-app.bundle
 ```
@@ -79,12 +79,12 @@ en sont la démonstration.
 ### Étape 0 — BLOQUANTE : donner un distant réel aux quatre orphelins
 
 Rien d'autre ne doit bouger avant. Tant que `workbench`, `openwork-app`,
-`mcp-poste` et `chantier` n'existent que sur des disques, réduire la réplication
+`mcp-poste` et `epic` n'existent que sur des disques, réduire la réplication
 détruirait la seule redondance qu'ils ont.
 
 - `workbench` et `openwork-app` : dépôts **privés** GitHub (ce sont des forks
   portant de la configuration personnelle).
-- `mcp-poste`, `chantier` : idem, ou fusion dans un dépôt existant s'ils ne
+- `mcp-poste`, `epic` : idem, ou fusion dans un dépôt existant s'ils ne
   méritent pas le leur.
 - Vérification : `git -C <dépôt> push` réussit, et `git ls-remote` répond.
 

@@ -174,11 +174,11 @@ function sseChunk(id, delta, finish = null) {
 }
 // `sansOutils` -- signal EXPLICITE porte par l'appelant (jamais un defaut), pour un
 // cerveau de RAISONNEMENT PUR : pas d'edition de fichiers, pas de commandes, pas de
-// MCP. Raison d'etre (chantier, commit e976076) : un noeud cense seulement reformuler
+// MCP. Raison d'etre (Epic, commit e976076) : un noeud cense seulement reformuler
 // ou planifier tapait la MEME session agentique que l'executeur, et a resolu une tache
 // PENDANT l'etape de reformulation -- invalidant la comparaison graphe/baseline. Le
 // mode par defaut (bypassPermissions) reste INCHANGE pour tout le reste : la voix
-// continue d'agir, l'executeur de chantier continue d'agir, c'est leur travail.
+// continue d'agir, l'executeur d'Epic continue d'agir, c'est leur travail.
 const baseArgs = ({ sansOutils = false } = {}) => {
   const a = sansOutils
     ? ['--verbose', '--include-partial-messages', '--permission-mode', 'plan']
